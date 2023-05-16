@@ -91,7 +91,7 @@ Instead of installing from the Chrome Webstore, you might might want to "side-lo
 
 1. Find the ZIP you want to load
      - If you want to side-load the latest version, you can download a ZIP from [the releases tab](https://github.com/joshuatz/linkedin-to-jsonresume/releases/)
-     - If you want to side-load a local build, use `npm run package-browserext` to create a ZIP
+     - If you want to side-load a local build, use `npm run package:browserext` to create a ZIP
 2. Go to Chrome's extension setting page (`chrome://extensions`)
 3. Turn on developer mode (upper right toggle switch)
 4. Drag the downloaded zip to the browser to let it install

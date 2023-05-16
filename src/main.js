@@ -20,7 +20,8 @@ import {
     urlToBase64,
     remapNestedLocale,
     companyLiPageFromCompanyUrn,
-    parseAndAttachResumeDates
+    parseAndAttachResumeDates,
+    sendToApi
 } from './utilities';
 
 // ==Bookmarklet==
@@ -1482,6 +1483,15 @@ window.LinkedinToResumeJson = (() => {
         const fileContents = JSON.stringify(rawJson, null, 2);
         this.debugConsole.log(fileContents);
         promptDownload(fileContents, fileName, 'application/json');
+    };
+
+    /** @param {SchemaVersion} version */
+    LinkedinToResumeJson.prototype.parseAndSendToApi = async function parseAndSendToApi(version = 'stable') {
+        const rawJson = await this.parseAndGetRawJson(version);
+        const fileName = `${_outputJsonLegacy.basics.name.replace(/\s/g, '_')}.resume.json`;
+        const fileContents = JSON.stringify(rawJson, null, 2);
+        this.debugConsole.log(fileContents);
+        sendToApi(fileContents, 'https://hyphen-automation-dev-airtable-exporter.azurewebsites.net/api/JsonResumeToAirtable?code=3jbBIQ-OUdutV8kqXeaddGtF4et6RGi_K4mqd-30rWPaAzFuynO55g==');
     };
 
     /** @param {SchemaVersion} version */

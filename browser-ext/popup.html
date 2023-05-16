@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta http-equiv="X-UA-Compatible" content="ie=edge">
-    <title>LinkedIn to JSON Resume Extension</title>
+    <title>LinkedIn to Airtable</title>
     <link rel="stylesheet" href="styles.css">
 </head>
 
@@ -14,6 +14,9 @@
         <button id="liToJsonButton" class="mainButton disabled toggle" title="Export profile to JSON Resume">LinkedIn Profile to JSON</button>
         <button id="liToJsonDownloadButton" class="mainButton emojiButton disabled toggle" title="Download JSON Resume Export">💾</button>
         <button id="vcardExportButton" class="mainButton emojiButton disabled toggle" title="Download vCard File">📠</button>
+    </div>
+    <div class="fullCenter">
+        <button id="liToApiButton" class="mainButton disabled toggle" title="Send LinkedIn Profile to API">Send LinkedIn Profile to API</button>
     </div>
     <div class="fullCenter">
         <div class="langSelectWrapper">
@@ -34,10 +37,6 @@
                 <option value="beta">Currently even with stable (v1.0.0)</option>
             </select>
         </div>
-    </div>
-    <div class="fullCenter bottomButtonsWrapper">
-        <a class="bottomButton" href="https://github.com/joshuatz/linkedin-to-jsonresume" target="_blank" title="Info about the extension. Takes you to Github page."><div>Info</div></a>
-        <a class="bottomButton" href="https://github.com/joshuatz/linkedin-to-jsonresume/issues/new" target="_blank" title="Report an issue or request a feature."><div>Report Issue</div></a>
     </div>
     <div class="fullCenter">
         <span>Version: </span><span id="versionDisplay">{version_string}</span>

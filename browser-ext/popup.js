@@ -176,6 +176,12 @@ document.getElementById('liToJsonButton').addEventListener('click', async () => 
     );
 });
 
+document.getElementById('liToApiButton').addEventListener('click', async () => {
+    chrome.tabs.executeScript({
+        code: `liToJrInstance.preferLocale = '${getSelectedLang()}';liToJrInstance.parseAndSendToApi();`
+    });
+});
+
 document.getElementById('liToJsonDownloadButton').addEventListener('click', () => {
     chrome.tabs.executeScript({
         code: `liToJrInstance.preferLocale = '${getSelectedLang()}';liToJrInstance.parseAndDownload();`

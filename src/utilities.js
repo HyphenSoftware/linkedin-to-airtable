@@ -127,6 +127,35 @@ export function promptDownload(data, fileName, type = 'text/plain') {
 }
 
 /**
+ * Add new contractor to Airtable
+ * @param {string} data
+ * @param {string} endpoint
+ */
+export function sendToApi(data, endpoint) {
+    const headers = {
+        'Content-Type': 'application/json',
+        'Access-Control-Allow-Origin': '*'
+        // Authorization: `Bearer ${accessToken}`
+    };
+
+    return fetch(endpoint, {
+        method: 'POST',
+        headers,
+        body: data
+    })
+        .then((response) => {
+            console.log('response.status: ', response.status);
+            response.text().then((text) => {
+                console.log('response.body: ', text);
+                alert(text);
+            });
+        })
+        .catch((err) => {
+            console.log(err);
+        });
+}
+
+/**
  * Get a cookie by name
  * @param {string} name
  */
