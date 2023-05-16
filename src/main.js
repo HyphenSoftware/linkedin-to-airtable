@@ -6,7 +6,6 @@
  */
 
 // @ts-ignore
-import VCardsJS from '@dan/vcards';
 import { resumeJsonTemplateLegacy, resumeJsonTemplateStable, resumeJsonTemplateBetaPartial } from './templates';
 import { liSchemaKeys as _liSchemaKeys, liTypeMappings as _liTypeMappings } from './schema';
 import {
@@ -796,6 +795,7 @@ window.LinkedinToResumeJson = (() => {
         /** @type {string | null} */
         this.preferLocale = null;
         _defaultLocale = this.getViewersLocalLang();
+        this.apiEndpoint = null;
         this.scannedPageUrl = '';
         this.parseSuccess = false;
         this.getFullSkills = typeof OPT_getFullSkills === 'boolean' ? OPT_getFullSkills : true;
@@ -1485,13 +1485,12 @@ window.LinkedinToResumeJson = (() => {
         promptDownload(fileContents, fileName, 'application/json');
     };
 
-    /** @param {SchemaVersion} version */
-    LinkedinToResumeJson.prototype.parseAndSendToApi = async function parseAndSendToApi(version = 'stable') {
+    /** @param {string} url  @param {SchemaVersion} version */
+    LinkedinToResumeJson.prototype.parseAndSendToApi = async function parseAndSendToApi(url, version = 'stable') {
         const rawJson = await this.parseAndGetRawJson(version);
-        const fileName = `${_outputJsonLegacy.basics.name.replace(/\s/g, '_')}.resume.json`;
         const fileContents = JSON.stringify(rawJson, null, 2);
         this.debugConsole.log(fileContents);
-        sendToApi(fileContents, 'https://hyphen-automation-dev-airtable-exporter.azurewebsites.net/api/JsonResumeToAirtable?code=3jbBIQ-OUdutV8kqXeaddGtF4et6RGi_K4mqd-30rWPaAzFuynO55g==');
+        const response = await sendToApi(fileContents, url);
     };
 
     /** @param {SchemaVersion} version */
@@ -1751,96 +1750,6 @@ window.LinkedinToResumeJson = (() => {
         }
 
         return photoUrl;
-    };
-
-    LinkedinToResumeJson.prototype.generateVCard = async function generateVCard() {
-        const profileResSummary = await this.getParsedProfile();
-        const contactInfoObj = await this.voyagerFetch(_voyagerEndpoints.contactInfo);
-        this.exportVCard(profileResSummary, contactInfoObj);
-    };
-
-    /**
-     * @param {ParseProfileSchemaResultSummary} profileResult
-     * @param {LiResponse} contactInfoObj
-     */
-    LinkedinToResumeJson.prototype.exportVCard = async function exportVCard(profileResult, contactInfoObj) {
-        const vCard = VCardsJS();
-        const profileDb = buildDbFromLiSchema(profileResult.liResponse);
-        const contactDb = buildDbFromLiSchema(contactInfoObj);
-        // Contact info is stored directly in response; no lookup
-        const contactInfo = /** @type {LiProfileContactInfoResponse['data']} */ (contactDb.tableOfContents);
-        const profile = profileResult.profileInfoObj;
-        vCard.formattedName = `${profile.firstName} ${profile.lastName}`;
-        vCard.firstName = profile.firstName;
-        vCard.lastName = profile.lastName;
-        // Geo
-        if ('postalCode' in profile.geoLocation) {
-            // @ts-ignore
-            vCard.homeAddress.postalCode = profile.geoLocation.postalCode;
-        }
-        vCard.email = contactInfo.emailAddress;
-        if (contactInfo.twitterHandles.length) {
-            // @ts-ignore
-            vCard.socialUrls['twitter'] = `https://twitter.com/${contactInfo.twitterHandles[0].name}`;
-        }
-        if (contactInfo.phoneNumbers) {
-            contactInfo.phoneNumbers.forEach((numberObj) => {
-                if (numberObj.type === 'MOBILE') {
-                    vCard.cellPhone = numberObj.number;
-                } else if (numberObj.type === 'WORK') {
-                    vCard.workPhone = numberObj.number;
-                } else {
-                    vCard.homePhone = numberObj.number;
-                }
-            });
-        }
-        // At a minimum, we need month and day in order to include BDAY
-        if (profile.birthDate && 'day' in profile.birthDate && 'month' in profile.birthDate) {
-            const birthdayLi = /** @type {LiDate} */ (profile.birthDate);
-            if (!birthdayLi.year) {
-                /**
-                 * Users can choose to OMIT their birthyear, but leave month and day (thus hiding age)
-                 * - vCard actually allows this in spec, but only in > v4 (RFC-6350): https://tools.ietf.org/html/rfc6350#:~:text=BDAY%3A--0415, https://tools.ietf.org/html/rfc6350#section-4.3.1
-                 *       - Governed by ISO-8601, which allows truncated under ISO.8601.2000, such as `--MMDD`
-                 *       - Example: `BDAY:--0415`
-                 * - Since the vCard library I'm using (many platforms) only support V3, I'll just exclude it from the vCard; including a partial date in v3 (violating the spec) will result in a corrupt card that will crash many programs
-                 */
-                console.warn(`Warning: User has a "partial" birthdate (year is omitted). This is not supported in vCard version 3 or under.`);
-            } else {
-                // Full birthday (can be used for age)
-                vCard.birthday = liDateToJSDate(birthdayLi);
-            }
-        }
-        // Try to get currently employed organization
-        const positions = this.getWorkPositions(profileDb);
-        if (positions.length) {
-            vCard.organization = positions[0].companyName;
-            vCard.title = positions[0].title;
-        }
-        vCard.workUrl = this.getUrlWithoutQuery();
-        vCard.note = profile.headline;
-        // Try to get profile picture
-        let photoUrl;
-        try {
-            photoUrl = await this.getDisplayPhoto();
-        } catch (e) {
-            this.debugConsole.warn(`Could not extract profile picture.`, e);
-        }
-        if (photoUrl) {
-            try {
-                // Since LI photo URLs are temporary, convert to base64 first
-                const photoDataBase64 = await urlToBase64(photoUrl, true);
-                // @ts-ignore
-                vCard.photo.embedFromString(photoDataBase64.dataStr, photoDataBase64.mimeStr);
-            } catch (e) {
-                this.debugConsole.error(`Failed to convert LI image to base64`, e);
-            }
-        }
-        const fileName = `${profile.firstName}_${profile.lastName}.vcf`;
-        const fileContents = vCard.getFormattedString();
-        this.debugConsole.log('vCard generated', fileContents);
-        promptDownload(fileContents, fileName, 'text/vcard');
-        return vCard;
     };
 
     /**

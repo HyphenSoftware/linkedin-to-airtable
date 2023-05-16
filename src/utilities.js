@@ -137,7 +137,6 @@ export function sendToApi(data, endpoint) {
         'Access-Control-Allow-Origin': '*'
         // Authorization: `Bearer ${accessToken}`
     };
-
     return fetch(endpoint, {
         method: 'POST',
         headers,
@@ -148,10 +147,12 @@ export function sendToApi(data, endpoint) {
             response.text().then((text) => {
                 console.log('response.body: ', text);
                 alert(text);
+                return true;
             });
         })
         .catch((err) => {
-            console.log(err);
+            console.error(err);
+            return false;
         });
 }
 

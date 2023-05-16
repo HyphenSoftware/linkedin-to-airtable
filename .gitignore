@@ -8,3 +8,4 @@ scratch
 *.pem
 *.crx
 .DS_Store
+endpoints.json

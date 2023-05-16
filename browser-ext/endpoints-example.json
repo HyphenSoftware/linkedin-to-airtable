@@ -1,0 +1,7 @@
+[{
+    "name": "DEV",
+    "url": "https://url-of-the-dev-endpoint"
+},{
+    "name": "PROD",
+    "url": "https://url-of-the-prod-endpoint"
+}]

@@ -14,6 +14,8 @@ const SPEC_SELECT = /** @type {HTMLSelectElement} */ (document.getElementById('s
 const SPEC_OPTIONS = ['legacy', 'stable', 'beta'];
 /** @type {HTMLSelectElement} */
 const LANG_SELECT = document.querySelector('.langSelect');
+/** @type {HTMLSelectElement} */
+const API_SELECT = document.querySelector('.apiSelect');
 
 /**
  * Generate injectable code for capturing a value from the contentScript scope and passing back via message
@@ -51,6 +53,13 @@ const getSelectedLang = () => {
 };
 
 /**
+ * Get the currently selected API endpoint from the selector
+ */
+const getSelectedAPIEndpoint = () => {
+    return API_SELECT.value;
+};
+
+/**
  * Get JS string that can be eval'ed to get the program to run and show output
  * Note: Be careful of strings versus vars, escaping, etc.
  * @param {SchemaVersion} version
@@ -71,6 +80,20 @@ const toggleEnabled = (isEnabled) => {
 };
 
 /**
+ * Toggle loader while doing API requests
+ * @param {boolean} isEnabled
+ */
+const showLoader = (isEnabled) => {
+    document.querySelectorAll('.loader').forEach((elem) => {
+        if (isEnabled) {
+            elem.classList.remove('hidden');
+        } else {
+            elem.classList.add('hidden');
+        }
+    });
+};
+
+/**
  * Load list of language strings to be displayed as options
  * @param {string[]} langs
  */
@@ -85,10 +108,23 @@ const loadLangs = (langs) => {
     toggleEnabled(langs.length > 0);
 };
 
-const exportVCard = () => {
-    chrome.tabs.executeScript({
-        code: `liToJrInstance.generateVCard()`
+/**
+ * Load list of API endpoints to be displayed as options
+ * @param {Object[]} api_endpoints - api endpoints
+ * @param {string} api_endpoints[].name - name of the endpoint
+ * @param {string} api_endpoints[].url - URL
+ */
+const loadApiEndpoints = (api_endpoints) => {
+    API_SELECT.innerHTML = '';
+    api_endpoints.forEach((api_endpoint) => {
+        if (api_endpoint) {
+            const option = document.createElement('option');
+            option.value = api_endpoint.url;
+            option.innerText = api_endpoint.name;
+            API_SELECT.appendChild(option);
+        }
     });
+    toggleEnabled(api_endpoints.length > 0);
 };
 
 /**
@@ -104,6 +140,24 @@ const setLang = (lang) => {
         () => {
             chrome.tabs.executeScript({
                 code: `console.log(liToJrInstance);console.log(liToJrInstance.preferLocale);`
+            });
+        }
+    );
+};
+
+/**
+ * Set the desired API endpoint on the exporter instance
+ * - Use `null` to unset
+ * @param {string | null} endpoint
+ */
+const setApiEndpoint = (endpoint) => {
+    chrome.tabs.executeScript(
+        {
+            code: `liToJrInstance.apiEndpoint = '${endpoint}';`
+        },
+        () => {
+            chrome.tabs.executeScript({
+                code: `console.log(liToJrInstance);console.log(liToJrInstance.apiEndpoint);`
             });
         }
     );
@@ -157,6 +211,11 @@ chrome.runtime.onMessage.addListener((message, sender) => {
         }
         supported.unshift(user);
         loadLangs(supported);
+
+        const url = chrome.runtime.getURL('./endpoints.json');
+        fetch(url)
+            .then((response) => response.json())
+            .then((json) => loadApiEndpoints(json));
     }
 });
 
@@ -177,8 +236,10 @@ document.getElementById('liToJsonButton').addEventListener('click', async () => 
 });
 
 document.getElementById('liToApiButton').addEventListener('click', async () => {
+    console.log('selected API endpoint: ', getSelectedAPIEndpoint());
+    showLoader(true);
     chrome.tabs.executeScript({
-        code: `liToJrInstance.preferLocale = '${getSelectedLang()}';liToJrInstance.parseAndSendToApi();`
+        code: `liToJrInstance.preferLocale = '${getSelectedLang()}';liToJrInstance.parseAndSendToApi('${getSelectedAPIEndpoint()}');`
     });
 });
 
@@ -192,8 +253,8 @@ LANG_SELECT.addEventListener('change', () => {
     setLang(getSelectedLang());
 });
 
-document.getElementById('vcardExportButton').addEventListener('click', () => {
-    exportVCard();
+API_SELECT.addEventListener('change', () => {
+    setApiEndpoint(getSelectedAPIEndpoint());
 });
 
 SPEC_SELECT.addEventListener('change', () => {
