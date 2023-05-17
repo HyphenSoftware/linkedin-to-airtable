@@ -1,11 +1,13 @@
 {
-    "name": "LinkedIn to Airtable Exporter",
-    "description": "Export a LinkedIn profile page to Airtable",
+    "name": "LinkedIn to API Exporter",
+    "description": "Export a LinkedIn profile page to an API",
     "manifest_version": 2,
     "icons": {
-        "16": "icon-16.png",
-        "48": "icon-48.png",
-        "128": "icon-128.png"        
+        "36": "icon-36.png",
+        "46": "icon-46.png",
+        "80": "icon-80.png",
+        "100": "icon-100.png",
+        "260": "icon-260.png"  
     },
     "page_action": {
         "default_popup": "popup.html"

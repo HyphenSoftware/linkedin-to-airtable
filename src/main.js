@@ -1490,7 +1490,7 @@ window.LinkedinToResumeJson = (() => {
         const rawJson = await this.parseAndGetRawJson(version);
         const fileContents = JSON.stringify(rawJson, null, 2);
         this.debugConsole.log(fileContents);
-        const response = await sendToApi(fileContents, url);
+        await sendToApi(fileContents, url);
     };
 
     /** @param {SchemaVersion} version */

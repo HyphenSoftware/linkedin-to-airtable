@@ -1,5 +1,5 @@
 {
-    "name": "linkedin-exporter",
+    "name": "linkedin-to-api",
     "version": "0.9.0",
     "description": "Browser tool to grab details from your open LinkedIn profile page and export to JSON Resume Schema",
     "private": true,

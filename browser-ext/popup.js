@@ -238,9 +238,19 @@ document.getElementById('liToJsonButton').addEventListener('click', async () => 
 document.getElementById('liToApiButton').addEventListener('click', async () => {
     console.log('selected API endpoint: ', getSelectedAPIEndpoint());
     showLoader(true);
-    chrome.tabs.executeScript({
-        code: `liToJrInstance.preferLocale = '${getSelectedLang()}';liToJrInstance.parseAndSendToApi('${getSelectedAPIEndpoint()}');`
-    });
+    chrome.tabs.executeScript(
+        {
+            code: `liToJrInstance.preferLocale = '${getSelectedLang()}';liToJrInstance.parseAndSendToApi('${getSelectedAPIEndpoint()}');`
+        }
+        // (result) => {
+        //     setTimeout(() => {
+        //         showLoader(false);
+        //         console.log(result);
+        //         // Close popup
+        //         window.close();
+        //     }, 1500);
+        // }
+    );
 });
 
 document.getElementById('liToJsonDownloadButton').addEventListener('click', () => {
