@@ -110,21 +110,21 @@ const loadLangs = (langs) => {
 
 /**
  * Load list of API endpoints to be displayed as options
- * @param {Object[]} api_endpoints - api endpoints
- * @param {string} api_endpoints[].name - name of the endpoint
- * @param {string} api_endpoints[].url - URL
+ * @param {Object[]} apiEndpoints - api endpoints
+ * @param {string} apiEndpoints[].name - name of the endpoint
+ * @param {string} apiEndpoints[].url - URL
  */
-const loadApiEndpoints = (api_endpoints) => {
+const loadApiEndpoints = (apiEndpoints) => {
     API_SELECT.innerHTML = '';
-    api_endpoints.forEach((api_endpoint) => {
-        if (api_endpoint) {
+    apiEndpoints.forEach((apiEndpoint) => {
+        if (apiEndpoint) {
             const option = document.createElement('option');
-            option.value = api_endpoint.url;
-            option.innerText = api_endpoint.name;
+            option.value = apiEndpoint.url;
+            option.innerText = apiEndpoint.name;
             API_SELECT.appendChild(option);
         }
     });
-    toggleEnabled(api_endpoints.length > 0);
+    toggleEnabled(apiEndpoints.length > 0);
 };
 
 /**
@@ -235,22 +235,20 @@ document.getElementById('liToJsonButton').addEventListener('click', async () => 
     );
 });
 
-document.getElementById('liToApiButton').addEventListener('click', async () => {
+document.getElementById('liToSubcontractor').addEventListener('click', async () => {
     console.log('selected API endpoint: ', getSelectedAPIEndpoint());
     showLoader(true);
-    chrome.tabs.executeScript(
-        {
-            code: `liToJrInstance.preferLocale = '${getSelectedLang()}';liToJrInstance.parseAndSendToApi('${getSelectedAPIEndpoint()}');`
-        }
-        // (result) => {
-        //     setTimeout(() => {
-        //         showLoader(false);
-        //         console.log(result);
-        //         // Close popup
-        //         window.close();
-        //     }, 1500);
-        // }
-    );
+    chrome.tabs.executeScript({
+        code: `liToJrInstance.preferLocale = '${getSelectedLang()}';liToJrInstance.parseAndSendToApi('${getSelectedAPIEndpoint()}', entity = 'subcontractor');`
+    });
+});
+
+document.getElementById('liToContact').addEventListener('click', async () => {
+    console.log('selected API endpoint: ', getSelectedAPIEndpoint());
+    showLoader(true);
+    chrome.tabs.executeScript({
+        code: `liToJrInstance.preferLocale = '${getSelectedLang()}';liToJrInstance.parseAndSendToApi('${getSelectedAPIEndpoint()}', entity = 'contact');`
+    });
 });
 
 document.getElementById('liToJsonDownloadButton').addEventListener('click', () => {

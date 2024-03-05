@@ -1486,9 +1486,10 @@ window.LinkedinToResumeJson = (() => {
     };
 
     /** @param {string} url  @param {SchemaVersion} version */
-    LinkedinToResumeJson.prototype.parseAndSendToApi = async function parseAndSendToApi(url, version = 'stable') {
+    LinkedinToResumeJson.prototype.parseAndSendToApi = async function parseAndSendToApi(url, entity = 'subcontractor', version = 'stable') {
         const rawJson = await this.parseAndGetRawJson(version);
-        const fileContents = JSON.stringify(rawJson, null, 2);
+        const payload = { entity, data: rawJson };
+        const fileContents = JSON.stringify(payload, null, 2);
         this.debugConsole.log(fileContents);
         await sendToApi(fileContents, url);
     };
