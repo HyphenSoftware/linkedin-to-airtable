@@ -483,6 +483,7 @@ window.LinkedinToResumeJson = (() => {
                         name: `${profile.firstName} ${profile.lastName}`,
                         summary: noNullOrUndef(profile.summary),
                         label: noNullOrUndef(profile.headline),
+                        // picture: profilePictureUrl,
                         location: {
                             countryCode: localeObject.country
                         }
@@ -869,6 +870,10 @@ window.LinkedinToResumeJson = (() => {
         const _this = this;
         let doneWithBlockIterator = false;
         let foundSomeSchema = false;
+
+        // Try to get profile picture
+        await this.parseImage();
+
         const possibleBlocks = document.querySelectorAll('code[id^="bpr-guid-"]');
         for (let x = 0; x < possibleBlocks.length; x++) {
             const currSchemaBlock = possibleBlocks[x];
@@ -918,6 +923,27 @@ window.LinkedinToResumeJson = (() => {
         };
         _outputJsonLegacy.basics.profiles.push(formattedProfile);
         _outputJsonStable.basics.profiles.push(formattedProfile);
+    };
+
+    LinkedinToResumeJson.prototype.parseImage = async function parseImage() {
+        const photoUrl = await this.getDisplayPhoto();
+        if (photoUrl) {
+            try {
+                this.debugConsole.warn('Profile picture found: ', photoUrl);
+
+                _outputJsonStable.basics.image = photoUrl;
+                _outputJsonLegacy.basics.picture = photoUrl;
+                // Since LI photo URLs are temporary, convert to base64 first
+                // const photoDataBase64 = await urlToBase64(photoUrl, true);
+                // console.log('Photo data base64: ', photoDataBase64);
+                // this.debugConsole.warn('Photo data base64: ', photoDataBase64);
+            } catch (e) {
+                this.debugConsole.error(`Failed to convert LI image to base64`, e);
+            }
+        } else {
+            console.log('No profile picture found');
+            this.debugConsole.warn('No profile picture found');
+        }
     };
 
     LinkedinToResumeJson.prototype.parseViaInternalApiFullProfile = async function parseViaInternalApiFullProfile(useCache = true) {
@@ -1246,6 +1272,9 @@ window.LinkedinToResumeJson = (() => {
         try {
             let apiSuccessCount = 0;
             let fullProfileEndpointSuccess = false;
+
+            // Try to get profile picture
+            await this.parseImage();
 
             fullProfileEndpointSuccess = await this.parseViaInternalApiFullProfile(useCache);
             if (fullProfileEndpointSuccess) {
@@ -1729,9 +1758,10 @@ window.LinkedinToResumeJson = (() => {
     LinkedinToResumeJson.prototype.getDisplayPhoto = async function getDisplayPhoto() {
         let photoUrl = '';
         /** @type {HTMLImageElement | null} */
-        const photoElem = document.querySelector('[class*="profile"] img[class*="profile-photo"]');
-        if (photoElem) {
-            photoUrl = photoElem.src;
+        const imageElement = document.querySelector('img[class*="profile-picture"]');
+        this.debugConsole.warn('imageElement: ', imageElement);
+        if (imageElement && imageElement.src) {
+            photoUrl = imageElement.src;
         } else {
             // Get via miniProfile entity in full profile db
             const { liResponse, profileSrc, profileInfoObj } = await this.getParsedProfile();
