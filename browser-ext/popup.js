@@ -1,8 +1,25 @@
+// @ts-nocheck
 /**
  * =============================
  * =        Constants          =
  * =============================
  */
+
+/** @typedef {'legacy' | 'stable' | 'beta'} SchemaVersion */
+
+/**
+ * @typedef {Object} LinkedinToResumeJson
+ * @property {string} preferLocale - The preferred locale for the resume
+ * @property {string} apiEndpoint - The API endpoint for sending data
+ * @property {function(string, string): void} parseAndSendToApi - Function to parse and send data to API
+ * @property {function(): void} parseAndDownload - Function to parse and download data
+ * @property {function(string): void} parseAndShowOutput - Function to parse and show output
+ * @property {function(): Promise<string[]>} getSupportedLocales - Function to get supported locales
+ * @property {function(): string} getViewersLocalLang - Function to get viewer's local language
+ */
+
+// We'll initialize this after the content script is loaded
+let liToJrInstance;
 
 const extensionId = chrome.runtime.id;
 
@@ -18,34 +35,6 @@ const LANG_SELECT = document.querySelector('.langSelect');
 const API_SELECT = document.querySelector('.apiSelect');
 
 /**
- * Generate injectable code for capturing a value from the contentScript scope and passing back via message
- * @param {string} valueToCapture - Name of the scoped variable to capture
- * @param {string} [optKey] - Key to use as message identifier. Defaults to valueToCapture
- */
-const createMessageSenderInjectable = (valueToCapture, optKey) => {
-    return `chrome.runtime.sendMessage('${extensionId}', {
-        key: '${optKey || valueToCapture}',
-        value: ${valueToCapture}
-    });`;
-};
-const createMainInstanceCode = `
-isDebug = window.location.href.includes('li2jr_debug=true');
-window.LinkedinToResumeJson = isDebug ? LinkedinToResumeJson : window.LinkedinToResumeJson;
-// Reuse existing instance if possible
-liToJrInstance = typeof(liToJrInstance) !== 'undefined' ? liToJrInstance : new LinkedinToResumeJson(isDebug);
-`;
-const getLangStringsCode = `(async () => {
-    const supported = await liToJrInstance.getSupportedLocales();
-    const user = liToJrInstance.getViewersLocalLang();
-    const payload = {
-        supported,
-        user
-    }
-    ${createMessageSenderInjectable('payload', 'locales')}
-})();
-`;
-
-/**
  * Get the currently selected lang locale in the selector
  */
 const getSelectedLang = () => {
@@ -57,15 +46,6 @@ const getSelectedLang = () => {
  */
 const getSelectedAPIEndpoint = () => {
     return API_SELECT.value;
-};
-
-/**
- * Get JS string that can be eval'ed to get the program to run and show output
- * Note: Be careful of strings versus vars, escaping, etc.
- * @param {SchemaVersion} version
- */
-const getRunAndShowCode = (version) => {
-    return `liToJrInstance.preferLocale = '${getSelectedLang()}';liToJrInstance.parseAndShowOutput('${version}');`;
 };
 
 /**
@@ -133,16 +113,15 @@ const loadApiEndpoints = (apiEndpoints) => {
  * @param {string | null} lang
  */
 const setLang = (lang) => {
-    chrome.tabs.executeScript(
-        {
-            code: `liToJrInstance.preferLocale = '${lang}';`
-        },
-        () => {
-            chrome.tabs.executeScript({
-                code: `console.log(liToJrInstance);console.log(liToJrInstance.preferLocale);`
-            });
-        }
-    );
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        chrome.scripting.executeScript({
+            target: { tabId: tabs[0].id },
+            func: (langValue) => {
+                liToJrInstance.preferLocale = langValue;
+            },
+            args: [lang]
+        });
+    });
 };
 
 /**
@@ -151,16 +130,15 @@ const setLang = (lang) => {
  * @param {string | null} endpoint
  */
 const setApiEndpoint = (endpoint) => {
-    chrome.tabs.executeScript(
-        {
-            code: `liToJrInstance.apiEndpoint = '${endpoint}';`
-        },
-        () => {
-            chrome.tabs.executeScript({
-                code: `console.log(liToJrInstance);console.log(liToJrInstance.apiEndpoint);`
-            });
-        }
-    );
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        chrome.scripting.executeScript({
+            target: { tabId: tabs[0].id },
+            func: (endpointValue) => {
+                liToJrInstance.apiEndpoint = endpointValue;
+            },
+            args: [endpoint]
+        });
+    });
 };
 
 /** @param {SchemaVersion} version */
@@ -201,7 +179,6 @@ const getSpecVersion = () => {
  */
 
 chrome.runtime.onMessage.addListener((message, sender) => {
-    console.log(message);
     if (sender.id === extensionId && message.key === 'locales') {
         /** @type {{supported: string[], user: string}} */
         const { supported, user } = message.value;
@@ -221,39 +198,63 @@ chrome.runtime.onMessage.addListener((message, sender) => {
 
 document.getElementById('liToJsonButton').addEventListener('click', async () => {
     const versionOption = await getSpecVersion();
-    const runAndShowCode = getRunAndShowCode(versionOption);
-    chrome.tabs.executeScript(
-        {
-            code: `${runAndShowCode}`
-        },
-        () => {
-            setTimeout(() => {
-                // Close popup
-                window.close();
-            }, 700);
-        }
-    );
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        chrome.scripting
+            .executeScript({
+                target: { tabId: tabs[0].id },
+                func: (version) => {
+                    liToJrInstance.preferLocale = window.liToJrInstance.getViewersLocalLang();
+                    liToJrInstance.parseAndShowOutput(version);
+                },
+                args: [versionOption]
+            })
+            .then(() => {
+                setTimeout(() => {
+                    // Close popup
+                    window.close();
+                }, 700);
+            });
+    });
 });
 
 document.getElementById('liToSubcontractor').addEventListener('click', async () => {
-    console.log('selected API endpoint: ', getSelectedAPIEndpoint());
     showLoader(true);
-    chrome.tabs.executeScript({
-        code: `liToJrInstance.preferLocale = '${getSelectedLang()}';liToJrInstance.parseAndSendToApi('${getSelectedAPIEndpoint()}', entity = 'subcontractor');`
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        chrome.scripting.executeScript({
+            target: { tabId: tabs[0].id },
+            func: (lang, endpoint) => {
+                liToJrInstance.preferLocale = lang;
+                liToJrInstance.parseAndSendToApi(endpoint, 'subcontractor');
+            },
+            args: [getSelectedLang(), getSelectedAPIEndpoint()]
+        });
     });
 });
 
 document.getElementById('liToContact').addEventListener('click', async () => {
-    console.log('selected API endpoint: ', getSelectedAPIEndpoint());
     showLoader(true);
-    chrome.tabs.executeScript({
-        code: `liToJrInstance.preferLocale = '${getSelectedLang()}';liToJrInstance.parseAndSendToApi('${getSelectedAPIEndpoint()}', entity = 'contact');`
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        chrome.scripting.executeScript({
+            target: { tabId: tabs[0].id },
+            func: (lang, endpoint) => {
+                liToJrInstance.preferLocale = lang;
+                liToJrInstance.parseAndSendToApi(endpoint, 'contact');
+            },
+            args: [getSelectedLang(), getSelectedAPIEndpoint()]
+        });
     });
 });
 
 document.getElementById('liToJsonDownloadButton').addEventListener('click', () => {
-    chrome.tabs.executeScript({
-        code: `liToJrInstance.preferLocale = '${getSelectedLang()}';liToJrInstance.parseAndDownload();`
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        chrome.scripting.executeScript({
+            target: { tabId: tabs[0].id },
+            func: (lang) => {
+                liToJrInstance.preferLocale = lang;
+                liToJrInstance.parseAndDownload();
+            },
+            args: [getSelectedLang()]
+        });
     });
 });
 
@@ -276,16 +277,63 @@ SPEC_SELECT.addEventListener('change', () => {
  */
 document.getElementById('versionDisplay').innerText = chrome.runtime.getManifest().version;
 
-chrome.tabs.executeScript(
-    {
-        file: 'main.js'
-    },
-    () => {
-        chrome.tabs.executeScript({
-            code: `${createMainInstanceCode}${getLangStringsCode}`
+// Initialize the content script and get the liToJrInstance
+chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    chrome.scripting
+        .executeScript({
+            target: { tabId: tabs[0].id },
+            files: ['main.js']
+        })
+        .then(() => {
+            chrome.scripting
+                .executeScript({
+                    target: { tabId: tabs[0].id },
+                    func: () => {
+                        const isDebug = window.location.href.includes('li2jr_debug=true');
+                        // eslint-disable-next-line no-undef
+                        window.LinkedinToResumeJson = isDebug ? LinkedinToResumeJson : window.LinkedinToResumeJson;
+                        // Reuse existing instance if possible
+                        // eslint-disable-next-line no-undef
+                        window.liToJrInstance = typeof window.liToJrInstance !== 'undefined' ? window.liToJrInstance : new LinkedinToResumeJson(isDebug);
+                        return window.liToJrInstance;
+                    }
+                })
+                .then((results) => {
+                    // Get the liToJrInstance from the content script
+                    if (results && results[0] && results[0].result) {
+                        liToJrInstance = results[0].result;
+
+                        // Now that we have liToJrInstance, we can get the supported locales
+                        chrome.scripting
+                            .executeScript({
+                                target: { tabId: tabs[0].id },
+                                func: () => {
+                                    return window.liToJrInstance.getSupportedLocales();
+                                }
+                            })
+                            .then((localeResults) => {
+                                if (localeResults && localeResults[0] && localeResults[0].result) {
+                                    const supported = localeResults[0].result;
+                                    const user = liToJrInstance.getViewersLocalLang();
+
+                                    // Make sure user's own locale comes as first option
+                                    if (supported.includes(user)) {
+                                        supported.splice(supported.indexOf(user), 1);
+                                    }
+                                    supported.unshift(user);
+                                    loadLangs(supported);
+                                }
+                            });
+
+                        // Load API endpoints
+                        const url = chrome.runtime.getURL('./endpoints.json');
+                        fetch(url)
+                            .then((response) => response.json())
+                            .then((json) => loadApiEndpoints(json));
+                    }
+                });
         });
-    }
-);
+});
 
 getSpecVersion().then((spec) => {
     SPEC_SELECT.value = spec;

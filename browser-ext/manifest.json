@@ -1,27 +1,28 @@
 {
     "name": "LinkedIn to API Exporter",
     "description": "Export a LinkedIn profile page to an API",
-    "manifest_version": 2,
+    "manifest_version": 3,
     "icons": {
         "36": "icon-36.png",
         "46": "icon-46.png",
         "80": "icon-80.png",
         "100": "icon-100.png",
-        "260": "icon-260.png"  
+        "260": "icon-260.png"
     },
-    "page_action": {
-        "default_popup": "popup.html"
+    "action": {
+        "default_popup": "./popup.html"
     },
     "background": {
-        "scripts": ["background.js"],
-        "persistent": false
+        "service_worker": "./background.js"
     },
-    "permissions": [
-        "declarativeContent",
-        "activeTab",
-        "storage"
-    ],
+    "permissions": ["declarativeContent", "activeTab", "storage", "scripting"],
+    "optional_permissions": [],
+    "host_permissions": ["https://www.linkedin.com/"],
+    "optional_host_permissions": ["*://*/*"],
     "web_accessible_resources": [
-        "endpoints.json"
+        {
+            "resources": ["./endpoints.json"],
+            "matches": ["*://*/*"]
+        }
     ]
 }
