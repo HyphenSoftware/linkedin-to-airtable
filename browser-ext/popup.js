@@ -43,9 +43,14 @@ const getSelectedLang = () => {
 
 /**
  * Get the currently selected API endpoint from the selector
+ * @returns {{importUrl: string, checkUrl: string} | null}
  */
 const getSelectedAPIEndpoint = () => {
-    return API_SELECT.value;
+    const { value } = API_SELECT;
+    if (!value || value === 'none') {
+        return null;
+    }
+    return JSON.parse(value);
 };
 
 /**
@@ -92,15 +97,19 @@ const loadLangs = (langs) => {
  * Load list of API endpoints to be displayed as options
  * @param {Object[]} apiEndpoints - api endpoints
  * @param {string} apiEndpoints[].name - name of the endpoint
- * @param {string} apiEndpoints[].url - URL
+ * @param {string} apiEndpoints[].importUrl - URL for import
+ * @param {string} apiEndpoints[].checkUrl - URL for checking profile
  */
 const loadApiEndpoints = (apiEndpoints) => {
     API_SELECT.innerHTML = '';
-    apiEndpoints.forEach((apiEndpoint) => {
-        if (apiEndpoint) {
+    apiEndpoints.forEach((endpoint) => {
+        if (endpoint && endpoint.name) {
             const option = document.createElement('option');
-            option.value = apiEndpoint.url;
-            option.innerText = apiEndpoint.name;
+            option.value = JSON.stringify({
+                importUrl: endpoint.importUrl,
+                checkUrl: endpoint.checkUrl
+            });
+            option.innerText = endpoint.name;
             API_SELECT.appendChild(option);
         }
     });
@@ -134,7 +143,7 @@ const setApiEndpoint = (endpoint) => {
         chrome.scripting.executeScript({
             target: { tabId: tabs[0].id },
             func: (endpointValue) => {
-                liToJrInstance.apiEndpoint = endpointValue;
+                liToJrInstance.apiEndpoint = endpointValue?.importUrl || null;
             },
             args: [endpoint]
         });
@@ -173,6 +182,63 @@ const getSpecVersion = () => {
 };
 
 /**
+ * Update the UI to show profile status
+ * @param {{subcontractor: boolean, contact: boolean, error?: string} | 'loading'} status
+ */
+const updateProfileStatus = (status) => {
+    console.log('Updating profile status:', status);
+
+    // Update subcontractor button
+    const subcontractorButton = document.getElementById('liToSubcontractor');
+    if (subcontractorButton) {
+        if (status === 'loading') {
+            subcontractorButton.style.backgroundColor = '#808080';
+            subcontractorButton.title = 'Checking profile status...';
+            subcontractorButton.disabled = true;
+        } else {
+            subcontractorButton.style.backgroundColor = status.subcontractor ? '#4CAF50' : '#f44336';
+            subcontractorButton.title = status.subcontractor ? 'Profile exists as subcontractor' : 'Add as Subcontractor';
+            subcontractorButton.disabled = false;
+        }
+    }
+
+    // Update contact button
+    const contactButton = document.getElementById('liToContact');
+    if (contactButton) {
+        if (status === 'loading') {
+            contactButton.style.backgroundColor = '#808080';
+            contactButton.title = 'Checking profile status...';
+            contactButton.disabled = true;
+        } else {
+            contactButton.style.backgroundColor = status.contact ? '#4CAF50' : '#f44336';
+            contactButton.title = status.contact ? 'Profile exists as contact' : 'Add as Contact';
+            contactButton.disabled = false;
+        }
+    }
+
+    // Update status text
+    const statusElement = document.getElementById('profileStatus');
+    if (!statusElement) {
+        const statusDiv = document.createElement('div');
+        statusDiv.id = 'profileStatus';
+        statusDiv.className = 'fullCenter';
+        document.body.insertBefore(statusDiv, document.querySelector('.fullCenter'));
+    }
+
+    const statusDiv = document.getElementById('profileStatus');
+    if (status === 'loading') {
+        statusDiv.innerHTML = '<div class="status-indicator loading">Checking profile status...</div>';
+    } else if (status.error) {
+        statusDiv.innerHTML = `<div class="status-indicator error">${status.error}</div>`;
+    } else {
+        const innerHtml = [];
+        innerHtml.push(`<div class="status-indicator ${status.subcontractor ? 'exists' : 'not-exists'}">${status.subcontractor ? 'Profile exists as subcontractor' : 'Subcontractor not found'}</div>`);
+        innerHtml.push(`<div class="status-indicator ${status.contact ? 'exists' : 'not-exists'}">${status.contact ? 'Profile exists as contact' : 'Contact not found'}</div>`);
+        statusDiv.innerHTML = innerHtml.join('');
+    }
+};
+
+/**
  * =============================
  * =   Setup Event Listeners   =
  * =============================
@@ -193,6 +259,8 @@ chrome.runtime.onMessage.addListener((message, sender) => {
         fetch(url)
             .then((response) => response.json())
             .then((json) => loadApiEndpoints(json));
+    } else if (sender.id === extensionId && message.key === 'profileCheckResult') {
+        updateProfileStatus(message.value);
     }
 });
 
@@ -224,7 +292,7 @@ document.getElementById('liToSubcontractor').addEventListener('click', async () 
             target: { tabId: tabs[0].id },
             func: (lang, endpoint) => {
                 liToJrInstance.preferLocale = lang;
-                liToJrInstance.parseAndSendToApi(endpoint, 'subcontractor');
+                liToJrInstance.parseAndSendToApi(endpoint.importUrl, 'subcontractor');
             },
             args: [getSelectedLang(), getSelectedAPIEndpoint()]
         });
@@ -238,7 +306,7 @@ document.getElementById('liToContact').addEventListener('click', async () => {
             target: { tabId: tabs[0].id },
             func: (lang, endpoint) => {
                 liToJrInstance.preferLocale = lang;
-                liToJrInstance.parseAndSendToApi(endpoint, 'contact');
+                liToJrInstance.parseAndSendToApi(endpoint.importUrl, 'contact');
             },
             args: [getSelectedLang(), getSelectedAPIEndpoint()]
         });
@@ -258,12 +326,43 @@ document.getElementById('liToJsonDownloadButton').addEventListener('click', () =
     });
 });
 
+document.getElementById('debugCheckButton').addEventListener('click', () => {
+    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+        chrome.scripting.executeScript({
+            target: { tabId: tabs[0].id },
+            func: (endpoint) => {
+                liToJrInstance.checkProfileExists(endpoint.checkUrl);
+            },
+            args: [getSelectedAPIEndpoint()]
+        });
+    });
+});
+
 LANG_SELECT.addEventListener('change', () => {
     setLang(getSelectedLang());
 });
 
 API_SELECT.addEventListener('change', () => {
-    setApiEndpoint(getSelectedAPIEndpoint());
+    const selectedEndpoint = getSelectedAPIEndpoint();
+    setApiEndpoint(selectedEndpoint);
+    // Check profile status when API endpoint changes
+    if (selectedEndpoint) {
+        // Show loading state in popup
+        updateProfileStatus('loading');
+        chrome.tabs.query({ active: true, currentWindow: true }, (activeTabs) => {
+            chrome.scripting.executeScript({
+                target: { tabId: activeTabs[0].id },
+                func: (endpoint) => {
+                    // Only execute the profile check in content script
+                    liToJrInstance.checkProfileExists(endpoint.checkUrl);
+                },
+                args: [selectedEndpoint]
+            });
+        });
+    } else {
+        // If no endpoint is selected, reset the UI
+        updateProfileStatus({ subcontractor: false, contact: false });
+    }
 });
 
 SPEC_SELECT.addEventListener('change', () => {
@@ -329,7 +428,34 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
                         const url = chrome.runtime.getURL('./endpoints.json');
                         fetch(url)
                             .then((response) => response.json())
-                            .then((json) => loadApiEndpoints(json));
+                            .then((json) => {
+                                console.log('Loaded API endpoints:', json);
+                                loadApiEndpoints(json);
+                                // Check profile status after loading endpoints
+                                if (API_SELECT.value) {
+                                    console.log('Initial API endpoint selected:', API_SELECT.value);
+                                    // Add a small delay to ensure the UI is ready
+                                    setTimeout(() => {
+                                        const selectedEndpoint = getSelectedAPIEndpoint();
+                                        if (selectedEndpoint) {
+                                            // Show loading state in popup
+                                            updateProfileStatus('loading');
+                                            chrome.tabs.query({ active: true, currentWindow: true }, (activeTabs) => {
+                                                chrome.scripting.executeScript({
+                                                    target: { tabId: activeTabs[0].id },
+                                                    func: (endpoint) => {
+                                                        // Only execute the profile check in content script
+                                                        liToJrInstance.checkProfileExists(endpoint.checkUrl);
+                                                    },
+                                                    args: [selectedEndpoint]
+                                                });
+                                            });
+                                        }
+                                    }, 100);
+                                } else {
+                                    console.log('No initial API endpoint selected');
+                                }
+                            });
                     }
                 });
         });

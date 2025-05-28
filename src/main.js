@@ -1961,5 +1961,54 @@ window.LinkedinToResumeJson = (() => {
         });
     };
 
+    /** @param {string} checkUrl */
+    LinkedinToResumeJson.prototype.checkProfileExists = async function checkProfileExists(checkUrl) {
+        try {
+            const currentUrl = this.getUrlWithoutQuery();
+            this.debugConsole.log('Checking profile with:', {
+                currentUrl,
+                checkUrl
+            });
+
+            const response = await fetch(checkUrl, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Access-Control-Allow-Origin': '*'
+                },
+                body: JSON.stringify({ url: currentUrl, type: 'subcontractor' })
+            });
+
+            if (!response.ok) {
+                const errorMessage = `Failed to check profile status: ${response.status} ${response.statusText}`;
+                this.debugConsole.error(errorMessage);
+                chrome.runtime.sendMessage({
+                    key: 'profileCheckResult',
+                    value: { error: errorMessage }
+                });
+                return { error: errorMessage };
+            }
+
+            const data = await response.json();
+            this.debugConsole.log('Profile check response:', data);
+
+            // Send result back to popup
+            chrome.runtime.sendMessage({
+                key: 'profileCheckResult',
+                value: data
+            });
+
+            return data;
+        } catch (error) {
+            const errorMessage = `Network error: ${error.message}`;
+            this.debugConsole.error('Error checking profile status:', error);
+            chrome.runtime.sendMessage({
+                key: 'profileCheckResult',
+                value: { error: errorMessage }
+            });
+            return { error: errorMessage };
+        }
+    };
+
     return LinkedinToResumeJson;
 })();

@@ -95,3 +95,23 @@ body {
     0% { transform: rotate(0deg); }
     100% { transform: rotate(360deg); }
 }
+
+.status-indicator {
+    padding: 8px 16px;
+    border-radius: 4px;
+    margin: 10px 0;
+    font-weight: bold;
+    text-align: center;
+}
+
+.status-indicator.exists {
+    background-color: #e6ffe6;
+    color: #006600;
+    border: 1px solid #00cc00;
+}
+
+.status-indicator.not-exists {
+    background-color: #fff2e6;
+    color: #cc6600;
+    border: 1px solid #ff9900;
+}
