@@ -1976,7 +1976,7 @@ window.LinkedinToResumeJson = (() => {
                     'Content-Type': 'application/json',
                     'Access-Control-Allow-Origin': '*'
                 },
-                body: JSON.stringify({ url: currentUrl, type: 'subcontractor' })
+                body: JSON.stringify({ url: currentUrl })
             });
 
             if (!response.ok) {

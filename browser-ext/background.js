@@ -13,7 +13,7 @@ chrome.runtime.onInstalled.addListener(() => {
                         }
                     })
                 ],
-                actions: [new chrome.declarativeContent.ShowPageAction()]
+                actions: [new chrome.declarativeContent.ShowAction()]
             }
         ]);
     });

@@ -183,7 +183,7 @@ const getSpecVersion = () => {
 
 /**
  * Update the UI to show profile status
- * @param {{subcontractor: boolean, contact: boolean, error?: string} | 'loading'} status
+ * @param {{subcontractor: object, contact: object, error?: string} | 'loading'} status
  */
 const updateProfileStatus = (status) => {
     console.log('Updating profile status:', status);
@@ -196,8 +196,8 @@ const updateProfileStatus = (status) => {
             subcontractorButton.title = 'Checking profile status...';
             subcontractorButton.disabled = true;
         } else {
-            subcontractorButton.style.backgroundColor = status.subcontractor ? '#4CAF50' : '#f44336';
-            subcontractorButton.title = status.subcontractor ? 'Profile exists as subcontractor' : 'Add as Subcontractor';
+            subcontractorButton.style.backgroundColor = status.subcontractor?.exists ? '#4CAF50' : '#f44336';
+            subcontractorButton.title = status.subcontractor?.exists ? 'Profile exists as subcontractor' : 'Add as Subcontractor';
             subcontractorButton.disabled = false;
         }
     }
@@ -210,8 +210,8 @@ const updateProfileStatus = (status) => {
             contactButton.title = 'Checking profile status...';
             contactButton.disabled = true;
         } else {
-            contactButton.style.backgroundColor = status.contact ? '#4CAF50' : '#f44336';
-            contactButton.title = status.contact ? 'Profile exists as contact' : 'Add as Contact';
+            contactButton.style.backgroundColor = status.contact?.exists ? '#4CAF50' : '#f44336';
+            contactButton.title = status.contact?.exists ? 'Profile exists as contact' : 'Add as Contact';
             contactButton.disabled = false;
         }
     }
@@ -232,8 +232,57 @@ const updateProfileStatus = (status) => {
         statusDiv.innerHTML = `<div class="status-indicator error">${status.error}</div>`;
     } else {
         const innerHtml = [];
-        innerHtml.push(`<div class="status-indicator ${status.subcontractor ? 'exists' : 'not-exists'}">${status.subcontractor ? 'Profile exists as subcontractor' : 'Subcontractor not found'}</div>`);
-        innerHtml.push(`<div class="status-indicator ${status.contact ? 'exists' : 'not-exists'}">${status.contact ? 'Profile exists as contact' : 'Contact not found'}</div>`);
+
+        // Subcontractor status
+        if (status.subcontractor) {
+            const subcontractorStatus = status.subcontractor;
+            const statusClass = subcontractorStatus.exists ? 'exists' : 'not-exists';
+            const mainStatus = subcontractorStatus.exists ? 'Profile exists as subcontractor' : 'Subcontractor not found';
+
+            let details = '';
+            if (subcontractorStatus.exists) {
+                details = `<div class="details">
+                    ${subcontractorStatus.lastImported ? `Last imported: ${subcontractorStatus.lastImported}` : ''}
+                    ${subcontractorStatus.lastContacted ? `<br>Last contacted: ${subcontractorStatus.lastContacted} by ${subcontractorStatus.lastContactedBy?.name || 'Unknown'}` : ''}
+                </div>`;
+            }
+
+            const warning = subcontractorStatus.multipleProfiles ? '<div class="warning">Multiple profiles found for this LinkedIn URL</div>' : '';
+
+            innerHtml.push(`
+                <div class="status-indicator ${statusClass}">
+                    <div class="main-status">${mainStatus}</div>
+                    ${details}
+                    ${warning}
+                </div>
+            `);
+        }
+
+        // Contact status
+        if (status.contact) {
+            const contactStatus = status.contact;
+            const statusClass = contactStatus.exists ? 'exists' : 'not-exists';
+            const mainStatus = contactStatus.exists ? 'Profile exists as contact' : 'Contact not found';
+
+            let details = '';
+            if (contactStatus.exists) {
+                details = `<div class="details">
+                    ${contactStatus.lastImported ? `Last imported: ${contactStatus.lastImported}` : ''}
+                    ${contactStatus.lastContacted ? `<br>Last contacted: ${contactStatus.lastContacted} by ${contactStatus.lastContactedBy?.name || 'Unknown'}` : ''}
+                </div>`;
+            }
+
+            const warning = contactStatus.multipleProfiles ? '<div class="warning">Multiple profiles found for this LinkedIn URL</div>' : '';
+
+            innerHtml.push(`
+                <div class="status-indicator ${statusClass}">
+                    <div class="main-status">${mainStatus}</div>
+                    ${details}
+                    ${warning}
+                </div>
+            `);
+        }
+
         statusDiv.innerHTML = innerHtml.join('');
     }
 };
@@ -288,28 +337,36 @@ document.getElementById('liToJsonButton').addEventListener('click', async () => 
 document.getElementById('liToSubcontractor').addEventListener('click', async () => {
     showLoader(true);
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        chrome.scripting.executeScript({
-            target: { tabId: tabs[0].id },
-            func: (lang, endpoint) => {
-                liToJrInstance.preferLocale = lang;
-                liToJrInstance.parseAndSendToApi(endpoint.importUrl, 'subcontractor');
-            },
-            args: [getSelectedLang(), getSelectedAPIEndpoint()]
-        });
+        chrome.scripting
+            .executeScript({
+                target: { tabId: tabs[0].id },
+                func: (lang, endpoint) => {
+                    liToJrInstance.preferLocale = lang;
+                    return liToJrInstance.parseAndSendToApi(endpoint.importUrl, 'subcontractor');
+                },
+                args: [getSelectedLang(), getSelectedAPIEndpoint()]
+            })
+            .then(() => {
+                showLoader(false);
+            });
     });
 });
 
 document.getElementById('liToContact').addEventListener('click', async () => {
     showLoader(true);
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        chrome.scripting.executeScript({
-            target: { tabId: tabs[0].id },
-            func: (lang, endpoint) => {
-                liToJrInstance.preferLocale = lang;
-                liToJrInstance.parseAndSendToApi(endpoint.importUrl, 'contact');
-            },
-            args: [getSelectedLang(), getSelectedAPIEndpoint()]
-        });
+        chrome.scripting
+            .executeScript({
+                target: { tabId: tabs[0].id },
+                func: (lang, endpoint) => {
+                    liToJrInstance.preferLocale = lang;
+                    return liToJrInstance.parseAndSendToApi(endpoint.importUrl, 'contact');
+                },
+                args: [getSelectedLang(), getSelectedAPIEndpoint()]
+            })
+            .then(() => {
+                showLoader(false);
+            });
     });
 });
 
@@ -378,6 +435,19 @@ document.getElementById('versionDisplay').innerText = chrome.runtime.getManifest
 
 // Initialize the content script and get the liToJrInstance
 chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
+    const currentTab = tabs[0];
+    const isLinkedInPage = currentTab.url.includes('linkedin.com/in');
+
+    // Disable buttons if not on LinkedIn
+    if (!isLinkedInPage) {
+        document.getElementById('liToSubcontractor').disabled = true;
+        document.getElementById('liToContact').disabled = true;
+        document.getElementById('liToJsonButton').disabled = true;
+        document.getElementById('liToJsonDownloadButton').disabled = true;
+        document.getElementById('debugCheckButton').disabled = true;
+        return;
+    }
+
     chrome.scripting
         .executeScript({
             target: { tabId: tabs[0].id },
