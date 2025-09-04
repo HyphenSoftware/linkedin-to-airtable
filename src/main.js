@@ -1758,26 +1758,31 @@ window.LinkedinToResumeJson = (() => {
     LinkedinToResumeJson.prototype.getDisplayPhoto = async function getDisplayPhoto() {
         let photoUrl = '';
         /** @type {HTMLImageElement | null} */
-        const imageElement = document.querySelector('img[class*="profile-picture"]');
-        this.debugConsole.warn('imageElement: ', imageElement);
+        let imageElement = document.querySelector('img[class*="profile-picture"]');
         if (imageElement && imageElement.src) {
             photoUrl = imageElement.src;
         } else {
-            // Get via miniProfile entity in full profile db
-            const { liResponse, profileSrc, profileInfoObj } = await this.getParsedProfile();
-            const profileDb = buildDbFromLiSchema(liResponse);
-            let pictureMeta;
-            if (profileSrc === 'profileView') {
-                const miniProfile = profileDb.getElementByUrn(profileInfoObj['*miniProfile']);
-                if (miniProfile && !!miniProfile.picture) {
-                    pictureMeta = miniProfile.picture;
-                }
+            /** @type {HTMLImageElement | null} */
+            imageElement = document.querySelector('img[class*="profile-photo"]');
+            if (imageElement && imageElement.src) {
+                photoUrl = imageElement.src;
             } else {
-                pictureMeta = profileInfoObj.profilePicture.displayImageReference.vectorImage;
+                // Get via miniProfile entity in full profile db
+                const { liResponse, profileSrc, profileInfoObj } = await this.getParsedProfile();
+                const profileDb = buildDbFromLiSchema(liResponse);
+                let pictureMeta;
+                if (profileSrc === 'profileView') {
+                    const miniProfile = profileDb.getElementByUrn(profileInfoObj['*miniProfile']);
+                    if (miniProfile && !!miniProfile.picture) {
+                        pictureMeta = miniProfile.picture;
+                    }
+                } else {
+                    pictureMeta = profileInfoObj.profilePicture.displayImageReference.vectorImage;
+                }
+                // @ts-ignore
+                const smallestArtifact = pictureMeta.artifacts.sort((a, b) => a.width - b.width)[0];
+                photoUrl = `${pictureMeta.rootUrl}${smallestArtifact.fileIdentifyingUrlPathSegment}`;
             }
-            // @ts-ignore
-            const smallestArtifact = pictureMeta.artifacts.sort((a, b) => a.width - b.width)[0];
-            photoUrl = `${pictureMeta.rootUrl}${smallestArtifact.fileIdentifyingUrlPathSegment}`;
         }
 
         return photoUrl;
