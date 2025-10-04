@@ -875,41 +875,62 @@ window.LinkedinToResumeJson = (() => {
         await this.parseImage();
 
         const possibleBlocks = document.querySelectorAll('code[id^="bpr-guid-"]');
+        _this.debugConsole.log(`Found ${possibleBlocks.length} embedded schema blocks`);
+        
         for (let x = 0; x < possibleBlocks.length; x++) {
             const currSchemaBlock = possibleBlocks[x];
-            // Check if current schema block matches profileView
-            if (/educationView/.test(currSchemaBlock.innerHTML) && /positionView/.test(currSchemaBlock.innerHTML)) {
-                try {
-                    const embeddedJson = JSON.parse(currSchemaBlock.innerHTML);
-                    // Due to SPA nature, tag could actually be for profile other than the one currently open
+            try {
+                const blockHtml = currSchemaBlock.innerHTML;
+                
+                // Check if this block contains profile data - look for multiple indicators
+                const hasEducation = /educationView|profileEducation/i.test(blockHtml);
+                const hasPosition = /positionView|profilePosition/i.test(blockHtml);
+                const hasProfile = /\"Profile\"|firstName|lastName/i.test(blockHtml);
+                
+                // More lenient check - if it has profile info and at least one section
+                const looksLikeProfileData = hasProfile || (hasEducation && hasPosition);
+                
+                if (looksLikeProfileData) {
+                    const embeddedJson = JSON.parse(blockHtml);
+                    
+                    // Verify this is the correct profile
                     const desiredProfileId = _this.getProfileId();
                     const schemaProfileId = getProfileIdFromLiSchema(embeddedJson);
-                    if (schemaProfileId === desiredProfileId) {
-                        doneWithBlockIterator = true;
+                    
+                    if (schemaProfileId === desiredProfileId || !schemaProfileId) {
+                        // schemaProfileId might be empty for some schemas, proceed anyway if data looks valid
                         foundSomeSchema = true;
+                        _this.debugConsole.log(`Attempting to parse embedded schema block ${x + 1}/${possibleBlocks.length}`);
+                        
                         // eslint-disable-next-line no-await-in-loop
                         const profileParserResult = await parseProfileSchemaJSON(_this, embeddedJson);
-                        _this.debugConsole.log(`Parse from embedded schema, success = ${profileParserResult.parseSuccess}`);
+                        _this.debugConsole.log(`Parse from embedded schema block ${x + 1}, success = ${profileParserResult.parseSuccess}`);
+                        
                         if (profileParserResult.parseSuccess) {
                             this.profileParseSummary = profileParserResult;
+                            doneWithBlockIterator = true;
+                            _this.parseSuccess = true;
+                            break;
                         }
                     } else {
-                        _this.debugConsole.log(`Valid schema found, but schema profile id of "${schemaProfileId}" does not match desired profile ID of "${desiredProfileId}".`);
+                        _this.debugConsole.log(`Schema block ${x + 1} profile id "${schemaProfileId}" does not match desired "${desiredProfileId}".`);
                     }
-                } catch (e) {
-                    if (_this.debug) {
-                        throw e;
-                    }
-                    _this.debugConsole.warn('Could not parse embedded schema!', e);
+                }
+            } catch (e) {
+                // Don't let one bad block stop us from trying others
+                _this.debugConsole.warn(`Could not parse embedded schema block ${x + 1}:`, e.message);
+                if (_this.debug) {
+                    console.error('Embedded schema parse error details:', e);
                 }
             }
+            
             if (doneWithBlockIterator) {
-                _this.parseSuccess = true;
                 break;
             }
         }
+        
         if (!foundSomeSchema) {
-            _this.debugConsole.warn('Failed to find any embedded schema blocks!');
+            _this.debugConsole.warn('Failed to find any valid embedded schema blocks with profile data!');
         }
     };
 
@@ -982,6 +1003,7 @@ window.LinkedinToResumeJson = (() => {
 
     LinkedinToResumeJson.prototype.parseViaInternalApiFullSkills = async function parseViaInternalApiFullSkills() {
         try {
+            this.debugConsole.log('Attempting to fetch full skills...');
             const fullSkillsInfo = await this.voyagerFetch(_voyagerEndpoints.fullSkills);
             if (fullSkillsInfo && typeof fullSkillsInfo.data === 'object') {
                 if (Array.isArray(fullSkillsInfo.included)) {
@@ -996,12 +1018,14 @@ window.LinkedinToResumeJson = (() => {
             }
         } catch (e) {
             this.debugConsole.warn('Error parsing using internal API (Voyager) - FullSkills', e);
+            this.debugConsole.warn('Note: Skills endpoint may be deprecated (410). Skills will be extracted from main profile data.');
         }
         return false;
     };
 
     LinkedinToResumeJson.prototype.parseViaInternalApiContactInfo = async function parseViaInternalApiContactInfo() {
         try {
+            this.debugConsole.log('Attempting to fetch contact info...');
             const contactInfo = await this.voyagerFetch(_voyagerEndpoints.contactInfo);
             if (contactInfo && typeof contactInfo.data === 'object') {
                 const { websites, twitterHandles, phoneNumbers, emailAddress } = contactInfo.data;
@@ -1050,6 +1074,7 @@ window.LinkedinToResumeJson = (() => {
             }
         } catch (e) {
             this.debugConsole.warn('Error parsing using internal API (Voyager) - Contact Info', e);
+            this.debugConsole.warn('Note: Contact info endpoint may be deprecated (410). Contact data extraction may be limited.');
         }
         return false;
     };
@@ -1405,18 +1430,30 @@ window.LinkedinToResumeJson = (() => {
 
         // Get directly via API
         /** @type {ParseProfileSchemaResultSummary['profileSrc']} */
-        let endpointType = 'profileView';
+        let endpointType = 'dashFullProfileWithEntities';
         /** @type {LiResponse} */
         let profileResponse;
+        
         /**
-         * LI acts strange if user is a multilingual user, with defaultLocale different than the resource being requested. It will *not* respect x-li-lang header for profileView, and you instead have to use the Dash fullprofile endpoint
+         * Try Dash endpoint first (as of 2024, profileView endpoint returns 410 Gone)
+         * Dash endpoint is more reliable and handles multilingual profiles better
          */
-        if (!localeMatchesUser || this.preferDash === true) {
-            endpointType = 'dashFullProfileWithEntities';
+        try {
+            this.debugConsole.log('Attempting to fetch profile via Dash endpoint...');
             profileResponse = await this.voyagerFetch(_voyagerEndpoints.dash.fullProfile.path);
-        } else {
-            // use normal profileView
-            profileResponse = await this.voyagerFetch(_voyagerEndpoints.fullProfileView);
+        } catch (dashError) {
+            this.debugConsole.warn('Dash endpoint failed, trying legacy profileView as fallback...', dashError);
+            // Fallback to profileView (kept for backward compatibility if endpoint ever returns)
+            try {
+                endpointType = 'profileView';
+                profileResponse = await this.voyagerFetch(_voyagerEndpoints.fullProfileView);
+            } catch (profileViewError) {
+                this.debugConsole.error('Both Dash and profileView endpoints failed', {
+                    dashError,
+                    profileViewError
+                });
+                throw new Error('Could not fetch profile data from any API endpoint');
+            }
         }
 
         // Try to use the same parser that I use for embedded
@@ -1470,17 +1507,35 @@ window.LinkedinToResumeJson = (() => {
                 await _this.triggerAjaxLoadByScrolling();
                 _this.parseBasics();
 
-                // Embedded schema can't be used for specific locales
-                if (_this.preferApi === false && localeMatchesUser) {
-                    await _this.parseEmbeddedLiSchema();
-                    if (!_this.parseSuccess) {
-                        await _this.parseViaInternalApi(false);
-                    }
-                } else {
+                // Try API first (Dash endpoint), then fall back to embedded schema
+                // This order is preferred as Dash endpoint is more reliable than embedded schema
+                _this.debugConsole.log('Starting profile extraction...');
+                
+                try {
                     await _this.parseViaInternalApi(false);
-                    if (!_this.parseSuccess) {
+                    _this.debugConsole.log(`API parse ${_this.parseSuccess ? 'succeeded' : 'failed'}`);
+                } catch (apiError) {
+                    _this.debugConsole.warn('API parsing failed with error:', apiError);
+                }
+                
+                // If API failed, try embedded schema as fallback
+                if (!_this.parseSuccess) {
+                    _this.debugConsole.log('Attempting embedded schema extraction as fallback...');
+                    try {
                         await _this.parseEmbeddedLiSchema();
+                        _this.debugConsole.log(`Embedded schema parse ${_this.parseSuccess ? 'succeeded' : 'failed'}`);
+                    } catch (schemaError) {
+                        _this.debugConsole.warn('Embedded schema parsing failed with error:', schemaError);
                     }
+                }
+                
+                // If still failed, log helpful error
+                if (!_this.parseSuccess) {
+                    console.error('LinkedIn profile extraction failed. This may be due to:');
+                    console.error('1. LinkedIn API changes (profileView endpoint returned 410 Gone)');
+                    console.error('2. Changes to page structure or embedded data');
+                    console.error('3. Network issues or rate limiting');
+                    console.error('Try refreshing the page and running the extension again.');
                 }
 
                 _this.scannedPageUrl = _this.getUrlWithoutQuery();
@@ -1732,15 +1787,35 @@ window.LinkedinToResumeJson = (() => {
             return this.profileUrnId;
         }
 
-        const endpoint = _voyagerEndpoints.fullProfileView;
         // Make a new API call to get ID - be wary of recursive calls
-        if (allowFetch && !endpoint.includes(`{profileUrnId}`)) {
-            const fullProfileView = await this.voyagerFetch(endpoint);
-            const profileDb = buildDbFromLiSchema(fullProfileView);
-            this.profileUrnId = profileDb.tableOfContents['entityUrn'].match(profileViewUrnPatt)[1];
-            return this.profileUrnId;
+        if (allowFetch) {
+            try {
+                // Try Dash endpoint first (profileView likely returns 410)
+                const dashProfile = await this.voyagerFetch(_voyagerEndpoints.dash.fullProfile.path);
+                const profileDb = buildDbFromLiSchema(dashProfile);
+                // Dash endpoint structure is slightly different - try both patterns
+                const entityUrn = profileDb.tableOfContents['entityUrn'] || profileDb.tableOfContents['*elements']?.[0];
+                if (entityUrn) {
+                    const match = entityUrn.match(profileViewUrnPatt);
+                    if (match) {
+                        this.profileUrnId = match[1];
+                        return this.profileUrnId;
+                    }
+                }
+            } catch (e) {
+                this.debugConsole.warn('Could not get profileUrnId from Dash endpoint, trying profileView...', e);
+                try {
+                    const fullProfileView = await this.voyagerFetch(_voyagerEndpoints.fullProfileView);
+                    const profileDb = buildDbFromLiSchema(fullProfileView);
+                    this.profileUrnId = profileDb.tableOfContents['entityUrn'].match(profileViewUrnPatt)[1];
+                    return this.profileUrnId;
+                } catch (e2) {
+                    this.debugConsole.warn('Could not get profileUrnId from any endpoint', e2);
+                }
+            }
+        } else {
+            this.debugConsole.warn('Could not scrape profileUrnId from cache, but fetch is disallowed. Might be using a stale ID!');
         }
-        this.debugConsole.warn('Could not scrape profileUrnId from cache, but fetch is disallowed. Might be using a stale ID!');
 
         // Try to find in DOM, as last resort
         const urnPatt = /miniprofiles\/([A-Za-z0-9-_]+)/g;
@@ -1938,10 +2013,15 @@ window.LinkedinToResumeJson = (() => {
                     mode: 'cors'
                 };
                 fetch(endpoint, fetchOptions).then((response) => {
-                    if (response.status !== 200) {
-                        const errStr = 'Error fetching internal API endpoint';
+                    if (response.status === 410) {
+                        const errStr = `LinkedIn API endpoint deprecated (410 Gone): ${endpoint}`;
+                        console.warn(errStr);
+                        _this.debugConsole.warn(errStr, 'This endpoint is no longer available. The plugin will try alternative methods.');
                         reject(new Error(errStr));
-                        console.warn(errStr, response);
+                    } else if (response.status !== 200) {
+                        const errStr = `Error fetching internal API endpoint (${response.status} ${response.statusText})`;
+                        reject(new Error(errStr));
+                        console.warn(errStr, endpoint, response);
                     } else {
                         response.text().then((text) => {
                             try {
