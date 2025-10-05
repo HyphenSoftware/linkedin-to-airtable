@@ -208,7 +208,9 @@ describe('LinkedInExtractor', () => {
                 education: 0,
                 work: 0,
                 skills: 0,
-                volunteer: 0
+                volunteer: 0,
+                certificates: 0,
+                interests: 0
             });
         });
 
