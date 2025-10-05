@@ -6,10 +6,12 @@
   ],
   "parser": "@typescript-eslint/parser",
   "parserOptions": {
-    "ecmaVersion": 2018
+    "ecmaVersion": 2022,
+    "sourceType": "module"
   },
   "env": {
-    "browser": true
+    "browser": true,
+    "es2022": true
   },
   "rules": {
     "no-self-assign": "off",

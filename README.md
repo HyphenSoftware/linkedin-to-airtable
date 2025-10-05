@@ -1,6 +1,15 @@
-# LinkedIn Profile to JSON Resume Browser Tool ![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/joshuatz/linkedin-to-jsonresume)
+# LinkedIn Profile to JSON Resume Browser Tool 
+
+[![GitHub tag (latest SemVer)](https://img.shields.io/github/v/tag/joshuatz/linkedin-to-jsonresume)](https://github.com/joshuatz/linkedin-to-jsonresume/releases)
+[![Tests](https://img.shields.io/badge/tests-132%20passing-brightgreen)](./tests)
+[![Coverage](https://img.shields.io/badge/coverage-~30%25-yellow)](./tests)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
+[![Phase 2](https://img.shields.io/badge/Phase%202-70%25-orange)](./PHASE-2-PROGRESS.md)
 
 > An extremely easy-to-use browser extension for exporting your full LinkedIn Profile to a JSON Resume file or string.
+
+**✨ Recently Modernized (Oct 2025):** This project has been updated with modern tooling, TypeScript, automated testing, and comprehensive documentation. [See what's new](./MODERNIZATION-SUMMARY.md).
 
 ## Chrome Extension 📦 - [Webstore Link](https://chrome.google.com/webstore/detail/json-resume-exporter/caobgmmcpklomkcckaenhjlokpmfbdec)
 
@@ -210,6 +219,62 @@ Helpful snippets (subject to change; these rely heavily on internals):
 var profileRes = await liToJrInstance.getParsedProfile(true);
 var profileDb = await liToJrInstance.internals.buildDbFromLiSchema(profileRes.liResponse);
 ```
+
+---
+
+## 🚀 Development
+
+### Quick Start
+
+```bash
+# Install dependencies
+npm install
+
+# Run tests
+npm test
+
+# Build extension
+npm run build:browserext
+
+# Run linting
+npm run lint
+```
+
+### Project Structure
+
+```
+src/              # TypeScript source code
+tests/            # Jest test files  
+browser-ext/      # Extension UI files
+build-scripts/    # Build automation
+docs/             # Documentation
+```
+
+### Key Commands
+
+```bash
+npm test                    # Run all tests
+npm run test:watch          # Watch mode for tests
+npm run test:coverage       # Generate coverage report
+npm run type-check          # TypeScript type checking
+npm run lint                # Check code quality
+npm run lint:fix            # Auto-fix issues
+npm run webpack             # Production build
+npm run build:browserext    # Build browser extension
+npm run package:browserext  # Package for distribution
+```
+
+### Contributing
+
+Contributions are welcome! Please read [CONTRIBUTING.md](./CONTRIBUTING.md) for guidelines.
+
+### Documentation
+
+- **[MODERNIZATION-SUMMARY.md](./MODERNIZATION-SUMMARY.md)** - Recent improvements (Oct 2025)
+- **[CONTRIBUTING.md](./CONTRIBUTING.md)** - Development guidelines
+- **[NEXT-STEPS.md](./NEXT-STEPS.md)** - Roadmap for future work
+- **[API-CHANGES-2024.md](./docs/API-CHANGES-2024.md)** - LinkedIn API updates
+- **[DIAGNOSTIC-GUIDE.md](./docs/DIAGNOSTIC-GUIDE.md)** - Troubleshooting guide
 
 ---
 

@@ -116,12 +116,12 @@ window.LinkedinToResumeJson = (() => {
             entities.push(currRow);
         }
 
-        /** @type {Partial<InternalDb> & Pick<InternalDb,'entitiesByUrn' | 'entities' | 'tableOfContents'>} */
+        /** @type {InternalDb} */
         const db = {
             entitiesByUrn,
             entities,
             tableOfContents: schemaJson.data
-        };
+        } as InternalDb;
         delete db.tableOfContents['included'];
         /**
          * Get list of element keys (if applicable)
@@ -233,8 +233,7 @@ window.LinkedinToResumeJson = (() => {
             }
             return values;
         };
-        // @ts-ignore
-        return db;
+        return db as InternalDb;
     }
 
     /**
@@ -431,11 +430,11 @@ window.LinkedinToResumeJson = (() => {
             }
         };
         if (_this.preferLocale) {
-            resultSummary.localeStr = _this.preferLocale;
+            (resultSummary as any).localeStr = _this.preferLocale;
         }
         try {
             // Build db object
-            let db = buildDbFromLiSchema(liResponse);
+            let db = buildDbFromLiSchema(liResponse) as InternalDb;
 
             if (dash && !liResponse.data.hoisted) {
                 // For FullProfileWithEntities, the main entry point of response
@@ -461,7 +460,7 @@ window.LinkedinToResumeJson = (() => {
                     included: liResponse.included
                 };
                 resultSummary.liResponse = hoistedRes;
-                db = buildDbFromLiSchema(hoistedRes);
+                db = buildDbFromLiSchema(hoistedRes) as InternalDb;
             }
 
             // Parse basics / profile
@@ -472,7 +471,7 @@ window.LinkedinToResumeJson = (() => {
                 // There should only be one
                 if (!profileGrabbed) {
                     profileGrabbed = true;
-                    resultSummary.profileInfoObj = profile;
+                    (resultSummary as any).profileInfoObj = profile;
                     /**
                      * What the heck LI, this seems *intentionally* misleading
                      * @type {LiSupportedLocale}
@@ -488,10 +487,10 @@ window.LinkedinToResumeJson = (() => {
                             countryCode: localeObject.country
                         }
                     };
-                    if (profile.address) {
-                        formattedProfileObj.location.address = noNullOrUndef(profile.address);
-                    } else if (profile.locationName) {
-                        formattedProfileObj.location.address = noNullOrUndef(profile.locationName);
+                    if ((profile as any).address) {
+                        (formattedProfileObj.location as any).address = noNullOrUndef((profile as any).address);
+                    } else if ((profile as any).locationName) {
+                        (formattedProfileObj.location as any).address = noNullOrUndef((profile as any).locationName);
                     }
                     _outputJsonLegacy.basics = {
                         ..._outputJsonLegacy.basics,
@@ -513,7 +512,7 @@ window.LinkedinToResumeJson = (() => {
                     // Also make sure instance defaultLocale is correct, while we are parsing profile
                     const parsedLocaleStr = `${localeObject.language}_${localeObject.country}`;
                     _defaultLocale = parsedLocaleStr;
-                    resultSummary.localeStr = parsedLocaleStr;
+                    (resultSummary as any).localeStr = parsedLocaleStr;
                 }
             });
 
@@ -667,8 +666,8 @@ window.LinkedinToResumeJson = (() => {
                     issuer: cert.authority
                 };
                 parseAndAttachResumeDates(certObj, cert);
-                if (typeof cert.url === 'string' && cert.url) {
-                    certObj.url = cert.url;
+                if (typeof (cert as any).url === 'string' && (cert as any).url) {
+                    (certObj as any).url = (cert as any).url;
                 }
                 certificates.push(certObj);
             });
@@ -829,7 +828,7 @@ window.LinkedinToResumeJson = (() => {
             try {
                 const recipeMap = window.require('deco-recipes/pillar-recipes/profile/recipes');
                 ['profilePositionGroups', 'fullProfile'].forEach((_key) => {
-                    const key = /** @type {'profilePositionGroups' | 'fullProfile'} */ (_key);
+                    const key = /** @type {'profilePositionGroups' | 'fullProfile'} */ _key;
                     const decorationId = recipeMap[_voyagerEndpoints.dash[key].recipe];
                     if (decorationId) {
                         const oldPath = _voyagerEndpoints.dash[key].path;
@@ -876,36 +875,36 @@ window.LinkedinToResumeJson = (() => {
 
         const possibleBlocks = document.querySelectorAll('code[id^="bpr-guid-"]');
         _this.debugConsole.log(`Found ${possibleBlocks.length} embedded schema blocks`);
-        
+
         for (let x = 0; x < possibleBlocks.length; x++) {
             const currSchemaBlock = possibleBlocks[x];
             try {
                 const blockHtml = currSchemaBlock.innerHTML;
-                
+
                 // Check if this block contains profile data - look for multiple indicators
                 const hasEducation = /educationView|profileEducation/i.test(blockHtml);
                 const hasPosition = /positionView|profilePosition/i.test(blockHtml);
                 const hasProfile = /\"Profile\"|firstName|lastName/i.test(blockHtml);
-                
+
                 // More lenient check - if it has profile info and at least one section
                 const looksLikeProfileData = hasProfile || (hasEducation && hasPosition);
-                
+
                 if (looksLikeProfileData) {
                     const embeddedJson = JSON.parse(blockHtml);
-                    
+
                     // Verify this is the correct profile
                     const desiredProfileId = _this.getProfileId();
                     const schemaProfileId = getProfileIdFromLiSchema(embeddedJson);
-                    
+
                     if (schemaProfileId === desiredProfileId || !schemaProfileId) {
                         // schemaProfileId might be empty for some schemas, proceed anyway if data looks valid
                         foundSomeSchema = true;
                         _this.debugConsole.log(`Attempting to parse embedded schema block ${x + 1}/${possibleBlocks.length}`);
-                        
+
                         // eslint-disable-next-line no-await-in-loop
                         const profileParserResult = await parseProfileSchemaJSON(_this, embeddedJson);
                         _this.debugConsole.log(`Parse from embedded schema block ${x + 1}, success = ${profileParserResult.parseSuccess}`);
-                        
+
                         if (profileParserResult.parseSuccess) {
                             this.profileParseSummary = profileParserResult;
                             doneWithBlockIterator = true;
@@ -923,12 +922,12 @@ window.LinkedinToResumeJson = (() => {
                     console.error('Embedded schema parse error details:', e);
                 }
             }
-            
+
             if (doneWithBlockIterator) {
                 break;
             }
         }
-        
+
         if (!foundSomeSchema) {
             _this.debugConsole.warn('Failed to find any valid embedded schema blocks with profile data!');
         }
@@ -1033,10 +1032,10 @@ window.LinkedinToResumeJson = (() => {
                 const partialBasics = {
                     location: _outputJsonLegacy.basics.location
                 };
-                partialBasics.location.address = noNullOrUndef(contactInfo.data.address, _outputJsonLegacy.basics.location.address);
-                partialBasics.email = noNullOrUndef(emailAddress, _outputJsonLegacy.basics.email);
+                (partialBasics.location as any).address = noNullOrUndef(contactInfo.data.address, _outputJsonLegacy.basics.location.address);
+                (partialBasics as any).email = noNullOrUndef(emailAddress, _outputJsonLegacy.basics.email);
                 if (phoneNumbers && phoneNumbers.length) {
-                    partialBasics.phone = noNullOrUndef(phoneNumbers[0].number);
+                    (partialBasics as any).phone = noNullOrUndef(phoneNumbers[0].number);
                 }
                 _outputJsonLegacy.basics = {
                     ..._outputJsonLegacy.basics,
@@ -1139,7 +1138,7 @@ window.LinkedinToResumeJson = (() => {
         try {
             const recommendationJson = await this.voyagerFetch(`${_voyagerEndpoints.recommendations}?q=received&recommendationStatuses=List(VISIBLE)`);
             // This endpoint return a LI db
-            const db = buildDbFromLiSchema(recommendationJson);
+            const db = buildDbFromLiSchema(recommendationJson) as InternalDb;
             db.getElementKeys().forEach((key) => {
                 const elem = db.entitiesByUrn[key];
                 if (elem && 'recommendationText' in elem) {
@@ -1254,7 +1253,7 @@ window.LinkedinToResumeJson = (() => {
         try {
             const workResponses = await this.voyagerFetchAutoPaginate(_voyagerEndpoints.dash.profilePositionGroups.path);
             workResponses.forEach((response) => {
-                const db = buildDbFromLiSchema(response);
+                const db = buildDbFromLiSchema(response) as InternalDb;
                 this.getWorkPositions(db).forEach((position) => {
                     parseAndPushPosition(position, db);
                 });
@@ -1268,7 +1267,7 @@ window.LinkedinToResumeJson = (() => {
         try {
             // This is a really annoying lookup - I can't find a separate API endpoint, so I have to use the full-FULL (dash) profile endpoint...
             const fullDashProfileObj = await this.voyagerFetch(_voyagerEndpoints.dash.fullProfile.path);
-            const db = buildDbFromLiSchema(fullDashProfileObj);
+            const db = buildDbFromLiSchema(fullDashProfileObj) as InternalDb;
             // Response is missing ToC, so just look up by namespace / schema
             const eduEntries = db.getElementsByType('com.linkedin.voyager.dash.identity.profile.Education');
             eduEntries.forEach((edu) => {
@@ -1283,7 +1282,7 @@ window.LinkedinToResumeJson = (() => {
         try {
             const volunteerResponses = await this.voyagerFetchAutoPaginate(_voyagerEndpoints.dash.profileVolunteerExperiences);
             volunteerResponses.forEach((response) => {
-                const db = buildDbFromLiSchema(response);
+                const db = buildDbFromLiSchema(response) as InternalDb;
                 db.getElementsByType(_liTypeMappings.volunteerWork.types).forEach((volunteerEntry) => {
                     parseAndPushVolunteerExperience(volunteerEntry, db);
                 });
@@ -1361,7 +1360,7 @@ window.LinkedinToResumeJson = (() => {
                 window.scrollTo(0, maxHeight);
             };
             scrollToBottom();
-            await new Promise((resolve) => {
+            await new Promise<void>((resolve) => {
                 setTimeout(() => {
                     scrollToBottom();
                     window.scrollTo(0, startingLocY);
@@ -1433,7 +1432,7 @@ window.LinkedinToResumeJson = (() => {
         let endpointType = 'dashFullProfileWithEntities';
         /** @type {LiResponse} */
         let profileResponse;
-        
+
         /**
          * Try Dash endpoint first (as of 2024, profileView endpoint returns 410 Gone)
          * Dash endpoint is more reliable and handles multilingual profiles better
@@ -1485,7 +1484,7 @@ window.LinkedinToResumeJson = (() => {
         _this.preferLocale = localeToUse || null;
 
         // eslint-disable-next-line no-async-promise-executor
-        return new Promise(async (resolve) => {
+        return new Promise<boolean>(async (resolve) => {
             if (_this.parseSuccess) {
                 if (_this.scannedPageUrl === _this.getUrlWithoutQuery() && localeStayedSame) {
                     // No need to reparse!
@@ -1510,14 +1509,14 @@ window.LinkedinToResumeJson = (() => {
                 // Try API first (Dash endpoint), then fall back to embedded schema
                 // This order is preferred as Dash endpoint is more reliable than embedded schema
                 _this.debugConsole.log('Starting profile extraction...');
-                
+
                 try {
                     await _this.parseViaInternalApi(false);
                     _this.debugConsole.log(`API parse ${_this.parseSuccess ? 'succeeded' : 'failed'}`);
                 } catch (apiError) {
                     _this.debugConsole.warn('API parsing failed with error:', apiError);
                 }
-                
+
                 // If API failed, try embedded schema as fallback
                 if (!_this.parseSuccess) {
                     _this.debugConsole.log('Attempting embedded schema extraction as fallback...');
@@ -1528,7 +1527,7 @@ window.LinkedinToResumeJson = (() => {
                         _this.debugConsole.warn('Embedded schema parsing failed with error:', schemaError);
                     }
                 }
-                
+
                 // If still failed, log helpful error
                 if (!_this.parseSuccess) {
                     console.error('LinkedIn profile extraction failed. This may be due to:');
@@ -1639,13 +1638,13 @@ window.LinkedinToResumeJson = (() => {
             /** @type {HTMLTextAreaElement} */
             const textarea = modalWrapper.querySelector(`#${_toolPrefix}_exportTextField`);
             textarea.addEventListener('click', () => {
-                textarea.select();
+                (textarea as HTMLTextAreaElement).select();
             });
         }
         // Actually set textarea text
         /** @type {HTMLTextAreaElement} */
         const outputTextArea = modalWrapper.querySelector(`#${_toolPrefix}_exportTextField`);
-        outputTextArea.value = JSON.stringify(jsonResume, null, 2);
+        (outputTextArea as HTMLTextAreaElement).value = JSON.stringify(jsonResume, null, 2);
     };
 
     LinkedinToResumeJson.prototype.injectStyles = function injectStyles() {
@@ -1741,7 +1740,7 @@ window.LinkedinToResumeJson = (() => {
             return metaTag.getAttribute('content');
         }
         if (selectTag) {
-            return selectTag.value;
+            return (selectTag as HTMLSelectElement).value;
         }
         // Default to English
         return 'en_US';
@@ -1755,7 +1754,7 @@ window.LinkedinToResumeJson = (() => {
     LinkedinToResumeJson.prototype.getSupportedLocales = async function getSupportedLocales() {
         if (!_supportedLocales.length) {
             const { liResponse } = await this.getParsedProfile(true, null);
-            const profileDb = buildDbFromLiSchema(liResponse);
+            const profileDb = buildDbFromLiSchema(liResponse) as InternalDb;
             const userDetails = profileDb.getValuesByKey(_liSchemaKeys.profile)[0];
             if (userDetails && Array.isArray(userDetails['supportedLocales'])) {
                 _supportedLocales = userDetails.supportedLocales.map((locale) => {
@@ -1782,7 +1781,7 @@ window.LinkedinToResumeJson = (() => {
 
         // Try to use cache
         if (this.profileParseSummary && this.profileParseSummary.parseSuccess) {
-            const profileDb = buildDbFromLiSchema(this.profileParseSummary.liResponse);
+            const profileDb = buildDbFromLiSchema(this.profileParseSummary.liResponse) as InternalDb;
             this.profileUrnId = profileDb.tableOfContents['entityUrn'].match(profileViewUrnPatt)[1];
             return this.profileUrnId;
         }
@@ -1792,7 +1791,7 @@ window.LinkedinToResumeJson = (() => {
             try {
                 // Try Dash endpoint first (profileView likely returns 410)
                 const dashProfile = await this.voyagerFetch(_voyagerEndpoints.dash.fullProfile.path);
-                const profileDb = buildDbFromLiSchema(dashProfile);
+                const profileDb = buildDbFromLiSchema(dashProfile) as InternalDb;
                 // Dash endpoint structure is slightly different - try both patterns
                 const entityUrn = profileDb.tableOfContents['entityUrn'] || profileDb.tableOfContents['*elements']?.[0];
                 if (entityUrn) {
@@ -1806,7 +1805,7 @@ window.LinkedinToResumeJson = (() => {
                 this.debugConsole.warn('Could not get profileUrnId from Dash endpoint, trying profileView...', e);
                 try {
                     const fullProfileView = await this.voyagerFetch(_voyagerEndpoints.fullProfileView);
-                    const profileDb = buildDbFromLiSchema(fullProfileView);
+                    const profileDb = buildDbFromLiSchema(fullProfileView) as InternalDb;
                     this.profileUrnId = profileDb.tableOfContents['entityUrn'].match(profileViewUrnPatt)[1];
                     return this.profileUrnId;
                 } catch (e2) {
@@ -1834,17 +1833,17 @@ window.LinkedinToResumeJson = (() => {
         let photoUrl = '';
         /** @type {HTMLImageElement | null} */
         let imageElement = document.querySelector('img[class*="profile-picture"]');
-        if (imageElement && imageElement.src) {
-            photoUrl = imageElement.src;
+        if (imageElement && (imageElement as HTMLImageElement).src) {
+            photoUrl = (imageElement as HTMLImageElement).src;
         } else {
             /** @type {HTMLImageElement | null} */
             imageElement = document.querySelector('img[class*="profile-photo"]');
-            if (imageElement && imageElement.src) {
-                photoUrl = imageElement.src;
+            if (imageElement && (imageElement as HTMLImageElement).src) {
+                photoUrl = (imageElement as HTMLImageElement).src;
             } else {
                 // Get via miniProfile entity in full profile db
-                const { liResponse, profileSrc, profileInfoObj } = await this.getParsedProfile();
-                const profileDb = buildDbFromLiSchema(liResponse);
+                const { liResponse, profileSrc, profileInfoObj } = await this.getParsedProfile() as any;
+                const profileDb = buildDbFromLiSchema(liResponse) as InternalDb;
                 let pictureMeta;
                 if (profileSrc === 'profileView') {
                     const miniProfile = profileDb.getElementByUrn(profileInfoObj['*miniProfile']);
@@ -1910,7 +1909,7 @@ window.LinkedinToResumeJson = (() => {
             responseArr.push(liResponse);
             handlePagingData(liResponse.data.paging);
             if (!done && requestsMade < requestLimit) {
-                await new Promise((res) => {
+                await new Promise<void>((res) => {
                     setTimeout(() => {
                         res();
                     }, throttleDelayMs);
@@ -1949,7 +1948,7 @@ window.LinkedinToResumeJson = (() => {
             })
         ).then(handleResponse);
 
-        return new Promise((res, rej) => {
+        return new Promise<any>((res, rej) => {
             resolver = res;
             rejector = rej;
         });
@@ -1992,13 +1991,13 @@ window.LinkedinToResumeJson = (() => {
                 'x-li-lang': _this.preferLocale
             };
         }
-        return new Promise((resolve, reject) => {
+        return new Promise<void>((resolve, reject) => {
             // Get the csrf token - should be stored as a cookie
             const csrfTokenString = getCookie('JSESSIONID').replace(/"/g, '');
             if (csrfTokenString) {
                 /** @type {RequestInit} */
-                const fetchOptions = {
-                    credentials: 'include',
+                const fetchOptions: RequestInit = {
+                    credentials: 'include' as RequestCredentials,
                     headers: {
                         ...langHeaders,
                         ...optHeaders,

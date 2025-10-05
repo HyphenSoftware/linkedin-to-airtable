@@ -6,6 +6,12 @@ declare global {
         [k: string]: any;
     }
 
+    // Window interface extensions
+    interface Window {
+        LinkedInDiagnostic: any;
+        LinkedinToResumeJson: any;
+    }
+
     // LI Types
 
     /**
