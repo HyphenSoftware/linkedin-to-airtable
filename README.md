@@ -98,15 +98,36 @@ Instead of installing from the Chrome Webstore, you might might want to "side-lo
 You can also unpack the ZIP and load it as "unpacked".
 
 ## Troubleshooting
-When in doubt, refresh the profile page before using this tool.
+
+### October 2024 API Changes
+LinkedIn deprecated the `profileView` endpoint (returns HTTP 410 Gone). This extension has been updated to use alternative endpoints. If you're experiencing issues:
+
+1. **Update to the latest version** of this extension
+2. **Run the diagnostic tool** - See [Diagnostic Guide](./docs/DIAGNOSTIC-GUIDE.md)
+3. **Try refreshing** the LinkedIn profile page before using the extension
+4. **Check the console** for specific error messages (instructions below)
+
+For detailed information about the API changes and fixes, see:
+- [Diagnostic Guide](./docs/DIAGNOSTIC-GUIDE.md) - Test what's working on your profile
+- [API Changes 2024](./docs/API-CHANGES-2024.md) - Technical details about the changes
+
+### Quick Diagnostic Test
+If the extension isn't working:
+
+1. Navigate to a LinkedIn profile page
+2. Open browser console (F12)
+3. Copy and paste the contents of `src/diagnostic.js`
+4. Run: `await LinkedInDiagnostic.runFullDiagnostic()`
+5. Review which endpoints and methods are working
 
 ### Troubleshooting - Debug Log
-If I'm trying to assist you in solving an issue with this tool, I might have you share some debug info. Currently, the easiest way to do this is to use the Chrome developer's console:
+If you're experiencing issues:
 
 1. Append `?li2jr_debug=true` to the end of the URL of the profile you are on
 2. Open Chrome dev tools, and specifically, the console ([instructions](https://developers.google.com/web/tools/chrome-devtools/open#console))
 3. Run the extension (try to export the profile), and then look for red messages that show up in the console (these are errors, as opposed to warnings or info logs).
     - You can filter to just `error` messages, in the filter dropdown above the console.
+4. The extension will now provide more detailed logging about which methods it's trying and which are failing
 
 ---
 
@@ -116,6 +137,7 @@ If I'm trying to assist you in solving an issue with this tool, I might have you
 
 Date | Release | Notes
 --- | --- | ---
+10/2024 | TBD | **Critical Fix**: LinkedIn deprecated `profileView` endpoint (410 Gone). Updated to use Dash endpoint as primary data source with automatic fallback to embedded schema. Added comprehensive diagnostic tool. See [API Changes 2024](./docs/API-CHANGES-2024.md) for details.
 4/9/2022 | 3.2.3 | Fix: Incomplete work listings extraction (see [#68](https://github.com/joshuatz/linkedin-to-jsonresume/issues/68))
 12/24/2021 | 3.2.2 | Fix: Broken endpoints (see [#63](https://github.com/joshuatz/linkedin-to-jsonresume/issues/63))
 11/14/2021 | 3.2.1 | Fix: Some profiles missing full language proficiency extraction (see [#59](https://github.com/joshuatz/linkedin-to-jsonresume/issues/59))<br/>Fix: Missing Education (regression) (see [#60](https://github.com/joshuatz/linkedin-to-jsonresume/issues/60))
