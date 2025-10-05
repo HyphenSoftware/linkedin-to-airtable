@@ -263,17 +263,14 @@ export class LinkedInExtractor {
                     this.debugConsole.log('Attempting API extraction...');
                     const profileData = await this.apiClient.fetchProfile(this.profileId);
                     this.debugConsole.log('Profile data received:', profileData);
-                    
+
                     const db = buildDbFromLiSchema(profileData);
                     this.debugConsole.log('Database built, looking for profile entities...');
-                    
+
                     // Try both legacy and Dash profile types
-                    const profiles = db.getElementsByType([
-                        'com.linkedin.voyager.dash.identity.profile.Profile',
-                        'com.linkedin.voyager.identity.profile.Profile'
-                    ]);
+                    const profiles = db.getElementsByType(['com.linkedin.voyager.dash.identity.profile.Profile', 'com.linkedin.voyager.identity.profile.Profile']);
                     this.debugConsole.log('Found profiles:', profiles.length);
-                    
+
                     const profile = profiles[0];
 
                     if (profile) {
@@ -289,9 +286,8 @@ export class LinkedInExtractor {
 
                         this.debugConsole.log('API extraction successful');
                         return { success: true, locale: parsed.locale };
-                    } else {
-                        this.debugConsole.warn('No profile entity found in API response');
                     }
+                    this.debugConsole.warn('No profile entity found in API response');
                 } catch (apiError) {
                     this.debugConsole.warn('API extraction failed, falling back to DOM:', apiError);
                 }
@@ -303,7 +299,7 @@ export class LinkedInExtractor {
             this.debugConsole.log('Attempting DOM extraction...');
             const domProfile = this.extractProfileFromDOM();
             this.debugConsole.log('DOM profile extracted:', domProfile ? 'Success' : 'Failed', domProfile);
-            
+
             if (domProfile) {
                 this.debugConsole.log('Parsing DOM profile...');
                 const parsed = parseProfileBasics(domProfile, false);
@@ -339,10 +335,7 @@ export class LinkedInExtractor {
                 try {
                     const profileData = await this.apiClient.fetchProfile(this.profileId);
                     const db = buildDbFromLiSchema(profileData);
-                    const education = db.getElementsByType([
-                        'com.linkedin.voyager.dash.identity.profile.Education',
-                        'com.linkedin.voyager.identity.profile.Education'
-                    ]);
+                    const education = db.getElementsByType(['com.linkedin.voyager.dash.identity.profile.Education', 'com.linkedin.voyager.identity.profile.Education']);
 
                     if (education.length > 0) {
                         const parsed = parseEducationList(education, db, this.debugConsole);
@@ -381,13 +374,10 @@ export class LinkedInExtractor {
                     // Use the main profile data which already includes position groups
                     const profileData = await this.apiClient.fetchProfile(this.profileId);
                     const db = buildDbFromLiSchema(profileData);
-                    
+
                     // Look for position entities in the included data
-                    const positions = db.getElementsByType([
-                        'com.linkedin.voyager.dash.identity.profile.Position',
-                        'com.linkedin.voyager.identity.profile.Position'
-                    ]);
-                    
+                    const positions = db.getElementsByType(['com.linkedin.voyager.dash.identity.profile.Position', 'com.linkedin.voyager.identity.profile.Position']);
+
                     this.debugConsole.log('Found work positions in profile data:', positions.length);
 
                     if (positions.length > 0) {
@@ -427,10 +417,7 @@ export class LinkedInExtractor {
                 try {
                     const profileData = await this.apiClient.fetchProfile(this.profileId);
                     const db = buildDbFromLiSchema(profileData);
-                    const skills = db.getElementsByType([
-                        'com.linkedin.voyager.dash.identity.profile.Skill',
-                        'com.linkedin.voyager.identity.profile.Skill'
-                    ]);
+                    const skills = db.getElementsByType(['com.linkedin.voyager.dash.identity.profile.Skill', 'com.linkedin.voyager.identity.profile.Skill']);
 
                     if (skills.length > 0) {
                         const parsed = parseSkillsList(skills);
@@ -475,13 +462,10 @@ export class LinkedInExtractor {
                     // Use the main profile data which already includes volunteer experiences
                     const profileData = await this.apiClient.fetchProfile(this.profileId);
                     const db = buildDbFromLiSchema(profileData);
-                    
+
                     // Look for volunteer experience entities in the included data
-                    const volunteers = db.getElementsByType([
-                        'com.linkedin.voyager.dash.identity.profile.VolunteerExperience',
-                        'com.linkedin.voyager.identity.profile.VolunteerExperience'
-                    ]);
-                    
+                    const volunteers = db.getElementsByType(['com.linkedin.voyager.dash.identity.profile.VolunteerExperience', 'com.linkedin.voyager.identity.profile.VolunteerExperience']);
+
                     this.debugConsole.log('Found volunteer experiences in profile data:', volunteers.length);
 
                     if (volunteers.length > 0) {
@@ -522,13 +506,10 @@ export class LinkedInExtractor {
                     // Use the main profile data which already includes certificates
                     const profileData = await this.apiClient.fetchProfile(this.profileId);
                     const db = buildDbFromLiSchema(profileData);
-                    
+
                     // Look for certificate entities in the included data
-                    const certificates = db.getElementsByType([
-                        'com.linkedin.voyager.dash.identity.profile.Certification',
-                        'com.linkedin.voyager.identity.profile.Certification'
-                    ]);
-                    
+                    const certificates = db.getElementsByType(['com.linkedin.voyager.dash.identity.profile.Certification', 'com.linkedin.voyager.identity.profile.Certification']);
+
                     this.debugConsole.log('Found certificates in profile data:', certificates.length);
 
                     if (certificates.length > 0) {
@@ -559,37 +540,33 @@ export class LinkedInExtractor {
                     // Use the main profile data which includes volunteer causes (interests)
                     const profileData = await this.apiClient.fetchProfile(this.profileId);
                     const db = buildDbFromLiSchema(profileData);
-                    
+
                     // Get the profile entity which contains volunteerCauses
-                    const profiles = db.getElementsByType([
-                        'com.linkedin.voyager.dash.identity.profile.Profile',
-                        'com.linkedin.voyager.identity.profile.Profile'
-                    ]);
-                    
+                    const profiles = db.getElementsByType(['com.linkedin.voyager.dash.identity.profile.Profile', 'com.linkedin.voyager.identity.profile.Profile']);
+
                     this.debugConsole.log('Looking for interests in profile...');
                     this.debugConsole.log('Found profile entities:', profiles.length);
-                    
+
                     if (profiles.length > 0) {
                         const profile = profiles[0];
                         this.debugConsole.log('Profile has volunteerCauses field:', 'volunteerCauses' in profile);
                         this.debugConsole.log('volunteerCauses value:', profile.volunteerCauses);
-                        
+
                         if (profile.volunteerCauses && Array.isArray(profile.volunteerCauses) && profile.volunteerCauses.length > 0) {
                             const causes = profile.volunteerCauses;
                             this.debugConsole.log('Found volunteer causes (interests):', causes.length, causes);
-                            
+
                             // Convert to JSON Resume interests format
                             const interests = causes.map((cause: string) => ({
                                 name: cause,
                                 keywords: []
                             }));
-                            
+
                             this.outputJsonLegacy.interests = interests;
                             this.outputJsonStable.interests = interests;
                             return { count: interests.length };
-                        } else {
-                            this.debugConsole.log('No volunteer causes found or field is empty/not an array');
                         }
+                        this.debugConsole.log('No volunteer causes found or field is empty/not an array');
                     } else {
                         this.debugConsole.warn('No profile entities found for interests extraction');
                     }
@@ -639,7 +616,7 @@ export class LinkedInExtractor {
                 delete this.outputJsonStable[section];
             }
         });
-        
+
         // Ensure certificates and interests arrays exist even if empty
         if (!this.outputJsonLegacy.interests) {
             this.outputJsonLegacy.interests = [];
@@ -690,7 +667,7 @@ export class LinkedInExtractor {
                 /"entityUrn":"urn:li:fsd_profile:([^"]+)"/,
                 /"publicIdentifier":"[^"]*","dashEntityUrn":"urn:li:fsd_profile:([^"]+)"/
             ];
-            
+
             for (const pattern of patterns) {
                 const match = embeddedData.match(pattern);
                 if (match) {
@@ -705,41 +682,34 @@ export class LinkedInExtractor {
         try {
             const profileData = await this.apiClient.fetchProfile(this.profileId);
             this.debugConsole.log('Profile data received for URN extraction:', profileData.data);
-            
+
             const db = buildDbFromLiSchema(profileData);
-            
+
             // Look for profile entity and extract its URN
-            const profiles = db.getElementsByType([
-                'com.linkedin.voyager.dash.identity.profile.Profile',
-                'com.linkedin.voyager.identity.profile.Profile'
-            ]);
-            
+            const profiles = db.getElementsByType(['com.linkedin.voyager.dash.identity.profile.Profile', 'com.linkedin.voyager.identity.profile.Profile']);
+
             this.debugConsole.log('Found profiles for URN extraction:', profiles.length);
-            
+
             if (profiles.length > 0) {
                 const profile = profiles[0];
                 this.debugConsole.log('Profile entity keys:', Object.keys(profile));
                 this.debugConsole.log('Profile entityUrn:', profile.entityUrn);
-                
+
                 if (profile.entityUrn) {
                     const urnMatch = profile.entityUrn.match(/urn:li:fsd_profile:([^:,\s]+)/);
                     if (urnMatch) {
                         this.profileUrnId = urnMatch[1];
                         this.debugConsole.log('Profile URN ID extracted from API profile entity:', this.profileUrnId);
                         return this.profileUrnId;
-                    } else {
-                        this.debugConsole.warn('Profile entityUrn did not match pattern:', profile.entityUrn);
                     }
+                    this.debugConsole.warn('Profile entityUrn did not match pattern:', profile.entityUrn);
                 }
             }
-            
+
             // Try searching the entire response for URN patterns
             const dataStr = JSON.stringify(profileData);
-            const patterns = [
-                /urn:li:fsd_profile:([^",\s]+)/,
-                /urn:li:fs_profileView:([^",\s]+)/
-            ];
-            
+            const patterns = [/urn:li:fsd_profile:([^",\s]+)/, /urn:li:fs_profileView:([^",\s]+)/];
+
             for (const pattern of patterns) {
                 const match = dataStr.match(pattern);
                 if (match) {
@@ -772,14 +742,14 @@ export class LinkedInExtractor {
     private extractEmbeddedProfileData(): string | null {
         // Look for embedded JSON in script tags
         const scriptTags = document.querySelectorAll('script[type="application/ld+json"], script');
-        
+
         for (const script of scriptTags) {
             const content = script.textContent || script.innerHTML;
             if (content && content.includes('urn:li:fs_profileView:')) {
                 return content;
             }
         }
-        
+
         return null;
     }
 
@@ -797,9 +767,8 @@ export class LinkedInExtractor {
             const jsonData = JSON.parse(embeddedData);
             if (jsonData && jsonData.included) {
                 // Find profile object
-                const profile = jsonData.included.find((item: any) => 
-                    item.$type === 'com.linkedin.voyager.identity.profile.Profile' ||
-                    item.$type === 'com.linkedin.voyager.dash.identity.profile.Profile'
+                const profile = jsonData.included.find(
+                    (item: any) => item.$type === 'com.linkedin.voyager.identity.profile.Profile' || item.$type === 'com.linkedin.voyager.dash.identity.profile.Profile'
                 );
                 return profile;
             }
@@ -813,30 +782,23 @@ export class LinkedInExtractor {
     // DOM extraction methods
     private extractProfileFromDOM(): any {
         this.debugConsole.log('Checking for embedded profile data in script tags...');
-        
+
         // First try embedded data
         const embeddedProfile = this.extractProfileFromEmbeddedData();
         if (embeddedProfile) {
             this.debugConsole.log('Found profile in embedded data!');
             return embeddedProfile;
         }
-        
+
         this.debugConsole.log('No embedded data found, trying DOM selectors...');
 
         // Fallback to DOM parsing - try multiple selectors for LinkedIn's changing UI
-        const nameSelectors = [
-            'h1.text-heading-xlarge',
-            '.pv-text-details__left-panel h1',
-            'h1[class*="text-heading"]',
-            '.ph5 h1',
-            'section.artdeco-card h1',
-            '.pv-top-card h1'
-        ];
-        
+        const nameSelectors = ['h1.text-heading-xlarge', '.pv-text-details__left-panel h1', 'h1[class*="text-heading"]', '.ph5 h1', 'section.artdeco-card h1', '.pv-top-card h1'];
+
         const headlineSelector = '.text-body-medium.break-words, .pv-text-details__left-panel .text-body-medium';
         const summarySelector = '#about ~ * .pv-shared-text-with-see-more .inline-show-more-text, .pv-about-section .pv-about__summary-text';
         const locationSelector = '.text-body-small.inline.t-black--light.break-words, .pv-text-details__left-panel .text-body-small';
-        
+
         let nameElement: Element | null = null;
         for (const selector of nameSelectors) {
             this.debugConsole.log('Trying name selector:', selector);
@@ -846,19 +808,19 @@ export class LinkedInExtractor {
                 break;
             }
         }
-        
+
         if (!nameElement) {
             this.debugConsole.log('Name element not found with any selector');
         }
-        
+
         this.debugConsole.log('Trying headline selector:', headlineSelector);
         const headlineElement = document.querySelector(headlineSelector);
         this.debugConsole.log('Headline element found:', !!headlineElement, headlineElement?.textContent?.trim());
-        
+
         this.debugConsole.log('Trying summary selector:', summarySelector);
         const summaryElement = document.querySelector(summarySelector);
         this.debugConsole.log('Summary element found:', !!summaryElement);
-        
+
         this.debugConsole.log('Trying location selector:', locationSelector);
         const locationElement = document.querySelector(locationSelector);
         this.debugConsole.log('Location element found:', !!locationElement, locationElement?.textContent?.trim());
@@ -893,9 +855,8 @@ export class LinkedInExtractor {
             try {
                 const jsonData = JSON.parse(embeddedData);
                 if (jsonData && jsonData.included) {
-                    return jsonData.included.filter((item: any) => 
-                        item.$type === 'com.linkedin.voyager.identity.profile.Education' ||
-                        item.$type === 'com.linkedin.voyager.dash.identity.profile.Education'
+                    return jsonData.included.filter(
+                        (item: any) => item.$type === 'com.linkedin.voyager.identity.profile.Education' || item.$type === 'com.linkedin.voyager.dash.identity.profile.Education'
                     );
                 }
             } catch (error) {
@@ -933,9 +894,8 @@ export class LinkedInExtractor {
             try {
                 const jsonData = JSON.parse(embeddedData);
                 if (jsonData && jsonData.included) {
-                    return jsonData.included.filter((item: any) => 
-                        item.$type === 'com.linkedin.voyager.identity.profile.Position' ||
-                        item.$type === 'com.linkedin.voyager.dash.identity.profile.Position'
+                    return jsonData.included.filter(
+                        (item: any) => item.$type === 'com.linkedin.voyager.identity.profile.Position' || item.$type === 'com.linkedin.voyager.dash.identity.profile.Position'
                     );
                 }
             } catch (error) {
@@ -973,10 +933,7 @@ export class LinkedInExtractor {
             try {
                 const jsonData = JSON.parse(embeddedData);
                 if (jsonData && jsonData.included) {
-                    return jsonData.included.filter((item: any) => 
-                        item.$type === 'com.linkedin.voyager.identity.profile.Skill' ||
-                        item.$type === 'com.linkedin.voyager.dash.identity.profile.Skill'
-                    );
+                    return jsonData.included.filter((item: any) => item.$type === 'com.linkedin.voyager.identity.profile.Skill' || item.$type === 'com.linkedin.voyager.dash.identity.profile.Skill');
                 }
             } catch (error) {
                 this.debugConsole.warn('Failed to parse embedded skills data:', error);
@@ -1006,9 +963,8 @@ export class LinkedInExtractor {
             try {
                 const jsonData = JSON.parse(embeddedData);
                 if (jsonData && jsonData.included) {
-                    return jsonData.included.filter((item: any) => 
-                        item.$type === 'com.linkedin.voyager.identity.profile.VolunteerExperience' ||
-                        item.$type === 'com.linkedin.voyager.dash.identity.profile.VolunteerExperience'
+                    return jsonData.included.filter(
+                        (item: any) => item.$type === 'com.linkedin.voyager.identity.profile.VolunteerExperience' || item.$type === 'com.linkedin.voyager.dash.identity.profile.VolunteerExperience'
                     );
                 }
             } catch (error) {

@@ -100,4 +100,3 @@ describe('Certificate Parser', () => {
         });
     });
 });
-

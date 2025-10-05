@@ -29,8 +29,7 @@ export { liSchemaKeys, liTypeMappings } from './schema';
 if (typeof window !== 'undefined') {
     // Expose the compatibility wrapper as LinkedinToResumeJson for backward compatibility
     (window as any).LinkedinToResumeJson = LinkedinToResumeJsonCompat;
-    
+
     // Also expose the new LinkedInExtractor for those who want to use it directly
     (window as any).LinkedInExtractor = LinkedInExtractor;
 }
-

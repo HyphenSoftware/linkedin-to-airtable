@@ -1,10 +1,10 @@
 /**
  * Legacy Compatibility Wrapper
- * 
+ *
  * Provides backward compatibility with the old LinkedinToResumeJson constructor function API.
  * This wrapper makes the new LinkedInExtractor class work exactly like the old API
  * so existing browser extension and bookmarklet code continues to work without changes.
- * 
+ *
  * @deprecated This wrapper exists for backward compatibility only. New code should use LinkedInExtractor directly.
  */
 
@@ -16,18 +16,31 @@ import { sendToApi } from '../utilities';
  */
 export class LinkedinToResumeJsonCompat {
     private extractor: LinkedInExtractor;
+
     public profileId: string;
+
     public profileUrnId: string | null = null;
+
     public profileParseSummary: any = null;
+
     public lastScannedLocale: string | null = null;
+
     public preferLocale: string | null = null;
+
     public apiEndpoint: string | null = null;
+
     public scannedPageUrl: string = '';
+
     public parseSuccess: boolean = false;
+
     public getFullSkills: boolean;
+
     public preferApi: boolean;
+
     public debug: boolean;
+
     public debugConsole: Console;
+
     public internals?: any;
 
     constructor(OPT_debug?: boolean, OPT_preferApi?: boolean, OPT_getFullSkills?: boolean) {
@@ -39,15 +52,15 @@ export class LinkedinToResumeJsonCompat {
         };
 
         this.extractor = new LinkedInExtractor(options);
-        
+
         // Copy properties for compatibility
         this.debug = options.debug ?? false;
         this.preferApi = options.preferApi ?? true;
         this.getFullSkills = options.getFullSkills ?? true;
-        
+
         // Get profileId from extractor
         this.profileId = (this.extractor as any).profileId || '';
-        
+
         // Set up debug console
         this.debugConsole = (this.extractor as any).debugConsole;
 
@@ -62,13 +75,13 @@ export class LinkedinToResumeJsonCompat {
     async parseAndDownload(version: 'legacy' | 'stable' = 'stable'): Promise<void> {
         try {
             const result = await this.extractor.extractProfile();
-            
+
             if (result.success) {
                 this.parseSuccess = true;
                 this.profileParseSummary = result.summary;
                 this.lastScannedLocale = result.locale;
                 this.profileUrnId = result.profileUrnId || null;
-                
+
                 // Download using the extractor's method
                 this.extractor.downloadProfile(version);
             } else {
@@ -88,30 +101,29 @@ export class LinkedinToResumeJsonCompat {
     async parseAndSendToApi(url: string, entity: string = 'subcontractor', version: 'legacy' | 'stable' = 'stable'): Promise<any> {
         try {
             const result = await this.extractor.extractProfile();
-            
+
             if (result.success) {
                 this.parseSuccess = true;
                 this.profileParseSummary = result.summary;
                 this.lastScannedLocale = result.locale;
                 this.profileUrnId = result.profileUrnId || null;
                 this.apiEndpoint = url;
-                
+
                 // Get the appropriate JSON format
                 const jsonData = version === 'legacy' ? result.legacy : result.stable;
-                
+
                 // Wrap in payload object with entity type (as expected by the API)
                 const payload = {
-                    entity: entity,
+                    entity,
                     data: jsonData
                 };
-                
+
                 // Send to API using the utility function
                 // Note: sendToApi signature is (data, endpoint)
                 return await sendToApi(JSON.stringify(payload, null, 2), url);
-            } else {
-                this.parseSuccess = false;
-                throw new Error(result.error || 'Profile extraction failed');
             }
+            this.parseSuccess = false;
+            throw new Error(result.error || 'Profile extraction failed');
         } catch (error) {
             this.parseSuccess = false;
             console.error('Error in parseAndSendToApi:', error);
@@ -125,23 +137,22 @@ export class LinkedinToResumeJsonCompat {
     async parseAndShowOutput(version: 'legacy' | 'stable' = 'stable'): Promise<any> {
         try {
             const result = await this.extractor.extractProfile();
-            
+
             if (result.success) {
                 this.parseSuccess = true;
                 this.profileParseSummary = result.summary;
                 this.lastScannedLocale = result.locale;
                 this.profileUrnId = result.profileUrnId || null;
-                
+
                 // Get the appropriate JSON format
                 const jsonData = version === 'legacy' ? result.legacy : result.stable;
-                
+
                 // Show the modal with the JSON data
                 this.showModal(jsonData);
                 return jsonData;
-            } else {
-                this.parseSuccess = false;
-                throw new Error(result.error || 'Profile extraction failed');
             }
+            this.parseSuccess = false;
+            throw new Error(result.error || 'Profile extraction failed');
         } catch (error) {
             this.parseSuccess = false;
             console.error('Error in parseAndShowOutput:', error);
@@ -169,21 +180,7 @@ export class LinkedinToResumeJsonCompat {
     async getSupportedLocales(): Promise<string[]> {
         // Return a static list of supported locales
         // The new implementation doesn't have dynamic locale discovery
-        return [
-            'en_US',
-            'es_ES',
-            'pt_BR',
-            'fr_FR',
-            'de_DE',
-            'it_IT',
-            'nl_NL',
-            'pl_PL',
-            'ru_RU',
-            'ja_JP',
-            'ko_KR',
-            'zh_CN',
-            'zh_TW'
-        ];
+        return ['en_US', 'es_ES', 'pt_BR', 'fr_FR', 'de_DE', 'it_IT', 'nl_NL', 'pl_PL', 'ru_RU', 'ja_JP', 'ko_KR', 'zh_CN', 'zh_TW'];
     }
 
     /**
@@ -209,7 +206,7 @@ export class LinkedinToResumeJsonCompat {
             if (!response.ok) {
                 const errorMessage = `Failed to check profile status: ${response.status} ${response.statusText}`;
                 this.debugConsole.error(errorMessage);
-                
+
                 // Send message to extension if available
                 if (typeof chrome !== 'undefined' && chrome.runtime) {
                     chrome.runtime.sendMessage({
@@ -217,7 +214,7 @@ export class LinkedinToResumeJsonCompat {
                         value: { error: errorMessage }
                     });
                 }
-                
+
                 return { error: errorMessage };
             }
 
@@ -236,14 +233,14 @@ export class LinkedinToResumeJsonCompat {
         } catch (error: any) {
             const errorMessage = `Network error: ${error.message}`;
             this.debugConsole.error('Error checking profile status:', error);
-            
+
             if (typeof chrome !== 'undefined' && chrome.runtime) {
                 chrome.runtime.sendMessage({
                     key: 'profileCheckResult',
                     value: { error: errorMessage }
                 });
             }
-            
+
             return { error: errorMessage };
         }
     }
@@ -255,7 +252,7 @@ export class LinkedinToResumeJsonCompat {
         const toolPrefix = 'jtzLiToResumeJson';
         const modalWrapperId = `${toolPrefix}_modalWrapper`;
         let modalWrapper = document.getElementById(modalWrapperId);
-        
+
         if (modalWrapper) {
             modalWrapper.style.display = 'block';
         } else {
@@ -272,7 +269,7 @@ export class LinkedinToResumeJsonCompat {
                 </div>
             </div>`;
             document.body.appendChild(modalWrapper);
-            
+
             // Add event listeners
             modalWrapper.addEventListener('click', (evt) => {
                 // Check if click was on modal content, or wrapper (outside content, to trigger close)
@@ -280,14 +277,14 @@ export class LinkedinToResumeJsonCompat {
                     this.closeModal();
                 }
             });
-            
+
             const closeButton = modalWrapper.querySelector(`.${toolPrefix}_closeButton`);
             if (closeButton) {
                 closeButton.addEventListener('click', () => {
                     this.closeModal();
                 });
             }
-            
+
             const textarea = modalWrapper.querySelector(`#${toolPrefix}_exportTextField`) as HTMLTextAreaElement;
             if (textarea) {
                 textarea.addEventListener('click', () => {
@@ -295,7 +292,7 @@ export class LinkedinToResumeJsonCompat {
                 });
             }
         }
-        
+
         // Actually set textarea text
         const outputTextArea = modalWrapper.querySelector(`#${toolPrefix}_exportTextField`) as HTMLTextAreaElement;
         if (outputTextArea) {
@@ -321,12 +318,12 @@ export class LinkedinToResumeJsonCompat {
     private injectStyles(): void {
         const toolPrefix = 'jtzLiToResumeJson';
         const styleId = `${toolPrefix}_styles`;
-        
+
         // Check if styles are already injected
         if (document.getElementById(styleId)) {
             return;
         }
-        
+
         const styleElement = document.createElement('style');
         styleElement.id = styleId;
         styleElement.innerText = `#${toolPrefix}_modalWrapper {
@@ -389,4 +386,3 @@ export class LinkedinToResumeJsonCompat {
         return window.location.href.split('?')[0];
     }
 }
-
