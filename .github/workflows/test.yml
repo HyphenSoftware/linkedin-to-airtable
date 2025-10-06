@@ -2,9 +2,9 @@ name: Run Tests
 
 on:
   pull_request:
-    branches: [ "main", "linkedin-to-api" ]
+    branches: [ "main", "linkedin-to-api", "linkedin-to-api-ts" ]
   push:
-    branches: [ "main", "linkedin-to-api" ]
+    branches: [ "main", "linkedin-to-api", "linkedin-to-api-ts" ]
 
 jobs:
   test:
