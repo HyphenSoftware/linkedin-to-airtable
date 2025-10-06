@@ -126,7 +126,7 @@ const setLang = (lang) => {
         chrome.scripting.executeScript({
             target: { tabId: tabs[0].id },
             func: (langValue) => {
-                liToJrInstance.preferLocale = langValue;
+                window.liToJrInstance.preferLocale = langValue;
             },
             args: [lang]
         });
@@ -143,7 +143,7 @@ const setApiEndpoint = (endpoint) => {
         chrome.scripting.executeScript({
             target: { tabId: tabs[0].id },
             func: (endpointValue) => {
-                liToJrInstance.apiEndpoint = endpointValue?.importUrl || null;
+                window.liToJrInstance.apiEndpoint = endpointValue?.importUrl || null;
             },
             args: [endpoint]
         });
@@ -320,8 +320,8 @@ document.getElementById('liToJsonButton').addEventListener('click', async () => 
             .executeScript({
                 target: { tabId: tabs[0].id },
                 func: (version) => {
-                    liToJrInstance.preferLocale = window.liToJrInstance.getViewersLocalLang();
-                    liToJrInstance.parseAndShowOutput(version);
+                    window.liToJrInstance.preferLocale = window.liToJrInstance.getViewersLocalLang();
+                    window.liToJrInstance.parseAndShowOutput(version);
                 },
                 args: [versionOption]
             })
@@ -341,8 +341,8 @@ document.getElementById('liToSubcontractor').addEventListener('click', async () 
             .executeScript({
                 target: { tabId: tabs[0].id },
                 func: (lang, endpoint) => {
-                    liToJrInstance.preferLocale = lang;
-                    return liToJrInstance.parseAndSendToApi(endpoint.importUrl, 'subcontractor');
+                    window.liToJrInstance.preferLocale = lang;
+                    return window.liToJrInstance.parseAndSendToApi(endpoint.importUrl, 'subcontractor');
                 },
                 args: [getSelectedLang(), getSelectedAPIEndpoint()]
             })
@@ -359,8 +359,8 @@ document.getElementById('liToContact').addEventListener('click', async () => {
             .executeScript({
                 target: { tabId: tabs[0].id },
                 func: (lang, endpoint) => {
-                    liToJrInstance.preferLocale = lang;
-                    return liToJrInstance.parseAndSendToApi(endpoint.importUrl, 'contact');
+                    window.liToJrInstance.preferLocale = lang;
+                    return window.liToJrInstance.parseAndSendToApi(endpoint.importUrl, 'contact');
                 },
                 args: [getSelectedLang(), getSelectedAPIEndpoint()]
             })
@@ -375,8 +375,8 @@ document.getElementById('liToJsonDownloadButton').addEventListener('click', () =
         chrome.scripting.executeScript({
             target: { tabId: tabs[0].id },
             func: (lang) => {
-                liToJrInstance.preferLocale = lang;
-                liToJrInstance.parseAndDownload();
+                window.liToJrInstance.preferLocale = lang;
+                window.liToJrInstance.parseAndDownload();
             },
             args: [getSelectedLang()]
         });
@@ -388,7 +388,7 @@ document.getElementById('debugCheckButton').addEventListener('click', () => {
         chrome.scripting.executeScript({
             target: { tabId: tabs[0].id },
             func: (endpoint) => {
-                liToJrInstance.checkProfileExists(endpoint.checkUrl);
+                window.liToJrInstance.checkProfileExists(endpoint.checkUrl);
             },
             args: [getSelectedAPIEndpoint()]
         });
@@ -411,7 +411,7 @@ API_SELECT.addEventListener('change', () => {
                 target: { tabId: activeTabs[0].id },
                 func: (endpoint) => {
                     // Only execute the profile check in content script
-                    liToJrInstance.checkProfileExists(endpoint.checkUrl);
+                    window.liToJrInstance.checkProfileExists(endpoint.checkUrl);
                 },
                 args: [selectedEndpoint]
             });
@@ -459,11 +459,8 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
                     target: { tabId: tabs[0].id },
                     func: () => {
                         const isDebug = window.location.href.includes('li2jr_debug=true');
-                        // eslint-disable-next-line no-undef
-                        window.LinkedinToResumeJson = isDebug ? LinkedinToResumeJson : window.LinkedinToResumeJson;
-                        // Reuse existing instance if possible
-                        // eslint-disable-next-line no-undef
-                        window.liToJrInstance = typeof window.liToJrInstance !== 'undefined' ? window.liToJrInstance : new LinkedinToResumeJson(isDebug);
+                        // Reference the globally exposed class
+                        window.liToJrInstance = typeof window.liToJrInstance !== 'undefined' ? window.liToJrInstance : new window.LinkedinToResumeJson(isDebug);
                         return window.liToJrInstance;
                     }
                 })
@@ -515,7 +512,7 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
                                                     target: { tabId: activeTabs[0].id },
                                                     func: (endpoint) => {
                                                         // Only execute the profile check in content script
-                                                        liToJrInstance.checkProfileExists(endpoint.checkUrl);
+                                                        window.liToJrInstance.checkProfileExists(endpoint.checkUrl);
                                                     },
                                                     args: [selectedEndpoint]
                                                 });

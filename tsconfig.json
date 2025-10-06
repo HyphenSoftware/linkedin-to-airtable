@@ -5,20 +5,42 @@
         "build-bookmarklet",
         "build-browserext",
         "webstore-zips",
-        "scratch"
+        "scratch",
+        "coverage",
+        "tests"
     ],
     "compilerOptions": {
         "baseUrl": ".",
-        "checkJs": true,
+        "checkJs": false,
         "noEmit": true,
         "noImplicitReturns": true,
         "alwaysStrict": true,
-        "declaration": false,
-        "noImplicitAny": true,
+        "declaration": true,
+        "declarationMap": true,
+        "noImplicitAny": false,
+        "strict": false,
+        "strictNullChecks": false,
+        "strictFunctionTypes": false,
+        "noImplicitThis": false,
+        "noImplicitReturns": false,
+        "noFallthroughCasesInSwitch": false,
+        "noUncheckedIndexedAccess": false,
+        "exactOptionalPropertyTypes": false,
         "maxNodeModuleJsDepth": 0,
-        "target": "es2015",
+        "target": "ES2022",
+        "module": "ESNext",
         "moduleResolution": "node",
         "allowSyntheticDefaultImports": true,
-        "resolveJsonModule": true
-    }
+        "esModuleInterop": true,
+        "resolveJsonModule": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "lib": ["ES2022", "DOM", "DOM.Iterable"],
+        "types": ["jest", "node", "chrome"]
+    },
+    "include": [
+        "src/**/*",
+        "tests/**/*",
+        "global.d.ts"
+    ]
 }

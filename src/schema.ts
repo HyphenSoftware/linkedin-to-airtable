@@ -1,7 +1,7 @@
 /**
  * Lookup keys for the standard profileView object
  */
-export const liSchemaKeys = {
+export const liSchemaKeys: Record<string, string> = {
     profile: '*profile',
     certificates: '*certificationView',
     education: '*educationView',
@@ -14,13 +14,19 @@ export const liSchemaKeys = {
     awards: '*honorView',
     publications: '*publicationView'
 };
+interface LiTypeMapping {
+    tocKeys: string[];
+    types: string[];
+    recipes?: string[];
+}
+
 /**
  * Try to maintain a mapping between generic section types, and LI's schema
  *  - tocKeys are pointers that often point to a collection of URNs
  *  - Try to put dash strings last, profileView first
  *  - Most recipes are dash only
  */
-export const liTypeMappings = {
+export const liTypeMappings: Record<string, LiTypeMapping> = {
     profile: {
         // There is no tocKey for profile in dash FullProfileWithEntries,
         // due to how entry-point is configured

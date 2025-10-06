@@ -1,9 +1,9 @@
 /**
  * LinkedIn Profile Data Extraction Diagnostic Tool
- * 
+ *
  * This script tests various methods of extracting LinkedIn profile data
  * to determine which endpoints and techniques still work after API changes.
- * 
+ *
  * Usage:
  * 1. Navigate to a LinkedIn profile page (e.g., https://www.linkedin.com/in/your-profile/)
  * 2. Open browser console (F12)
@@ -14,7 +14,7 @@
 
 window.LinkedInDiagnostic = (() => {
     const VOYAGER_BASE = 'https://www.linkedin.com/voyager/api';
-    
+
     /**
      * Get CSRF token from cookies
      */
@@ -22,7 +22,7 @@ window.LinkedInDiagnostic = (() => {
         const v = document.cookie.match(`(^|;) ?${name}=([^;]*)(;|$)`);
         return v ? v[2] : null;
     }
-    
+
     /**
      * Get the profile ID from the current URL
      */
@@ -33,24 +33,24 @@ window.LinkedInDiagnostic = (() => {
         }
         return null;
     }
-    
+
     /**
      * Make a fetch request to LinkedIn Voyager API
      */
     async function voyagerFetch(endpoint, headers = {}) {
         const csrfToken = getCookie('JSESSIONID')?.replace(/"/g, '');
-        
+
         if (!csrfToken) {
             throw new Error('Could not find CSRF token (JSESSIONID cookie)');
         }
-        
+
         const fullUrl = endpoint.startsWith('http') ? endpoint : VOYAGER_BASE + endpoint;
-        
+
         const response = await fetch(fullUrl, {
             credentials: 'include',
             headers: {
                 ...headers,
-                'accept': 'application/vnd.linkedin.normalized+json+2.1',
+                accept: 'application/vnd.linkedin.normalized+json+2.1',
                 'csrf-token': csrfToken,
                 'sec-fetch-mode': 'cors',
                 'sec-fetch-site': 'same-origin'
@@ -59,7 +59,7 @@ window.LinkedInDiagnostic = (() => {
             method: 'GET',
             mode: 'cors'
         });
-        
+
         return {
             status: response.status,
             statusText: response.statusText,
@@ -68,7 +68,7 @@ window.LinkedInDiagnostic = (() => {
             error: !response.ok ? await response.text() : null
         };
     }
-    
+
     /**
      * Test a specific endpoint
      */
@@ -77,7 +77,7 @@ window.LinkedInDiagnostic = (() => {
         try {
             const result = await voyagerFetch(endpoint);
             const success = result.ok;
-            
+
             return {
                 name,
                 description,
@@ -86,11 +86,13 @@ window.LinkedInDiagnostic = (() => {
                 status: result.status,
                 statusText: result.statusText,
                 hasData: success && result.data?.included?.length > 0,
-                dataPreview: success ? {
-                    includedCount: result.data?.included?.length || 0,
-                    dataKeys: Object.keys(result.data?.data || {}),
-                    dataType: result.data?.data?.$type
-                } : null,
+                dataPreview: success
+                    ? {
+                        includedCount: result.data?.included?.length || 0,
+                        dataKeys: Object.keys(result.data?.data || {}),
+                        dataType: result.data?.data?.$type
+                    }
+                    : null,
                 error: result.error,
                 timestamp: new Date().toISOString()
             };
@@ -105,13 +107,13 @@ window.LinkedInDiagnostic = (() => {
             };
         }
     }
-    
+
     /**
      * Test DOM-based data extraction
      */
     function testDOMExtraction() {
         console.log('Testing DOM extraction methods...');
-        
+
         const results = {
             embeddedSchemaBlocks: {
                 description: 'JSON data embedded in <code> tags',
@@ -137,23 +139,23 @@ window.LinkedInDiagnostic = (() => {
                 tags: {}
             }
         };
-        
+
         // Test embedded schema blocks
         const codeBlocks = document.querySelectorAll('code[id^="bpr-guid-"]');
         results.embeddedSchemaBlocks.count = codeBlocks.length;
         results.embeddedSchemaBlocks.found = codeBlocks.length > 0;
-        
+
         if (codeBlocks.length > 0) {
             let profileDataFound = false;
             const blockDetails = [];
-            
+
             codeBlocks.forEach((block, idx) => {
                 try {
                     const json = JSON.parse(block.innerHTML);
                     const hasEducation = /educationView/.test(block.innerHTML);
                     const hasPosition = /positionView/.test(block.innerHTML);
                     const hasProfile = /profile/.test(block.innerHTML);
-                    
+
                     blockDetails.push({
                         index: idx,
                         hasEducation,
@@ -163,7 +165,7 @@ window.LinkedInDiagnostic = (() => {
                         includedCount: json.included?.length || 0,
                         dataKeys: Object.keys(json.data || {})
                     });
-                    
+
                     if (hasEducation && hasPosition) {
                         profileDataFound = true;
                     }
@@ -174,55 +176,55 @@ window.LinkedInDiagnostic = (() => {
                     });
                 }
             });
-            
+
             results.embeddedSchemaBlocks.hasProfileData = profileDataFound;
             results.embeddedSchemaBlocks.details = blockDetails;
         }
-        
+
         // Test profile picture
         let imgElement = document.querySelector('img[class*="profile-picture"]');
         if (!imgElement) {
             imgElement = document.querySelector('img[class*="profile-photo"]');
         }
-        if (imgElement && imgElement.src) {
+        if (imgElement && (imgElement as HTMLImageElement).src) {
             results.profilePicture.found = true;
-            results.profilePicture.url = imgElement.src;
+            results.profilePicture.url = (imgElement as HTMLImageElement).src;
         }
-        
+
         // Test skill elements
         const skillElements = document.querySelectorAll('span[class*="skill-category-entity"][class*="name"]');
         if (skillElements.length > 0) {
             results.skillElements.found = true;
             results.skillElements.count = skillElements.length;
-            skillElements.forEach(elem => {
-                results.skillElements.skills.push(elem.innerText);
+            skillElements.forEach((elem) => {
+                results.skillElements.skills.push((elem as HTMLElement).innerText);
             });
         }
-        
+
         // Test meta tags
         const metaLocale = document.querySelector('meta[name="i18nDefaultLocale"]');
         if (metaLocale) {
             results.metaTags.found = true;
-            results.metaTags.tags.locale = metaLocale.getAttribute('content');
+            (results.metaTags.tags as any).locale = metaLocale.getAttribute('content');
         }
-        
+
         return results;
     }
-    
+
     /**
      * Run comprehensive diagnostic
      */
     async function runFullDiagnostic() {
         console.log('=== LinkedIn Profile Data Extraction Diagnostic ===\n');
-        
+
         const profileId = getProfileId();
         if (!profileId) {
             console.error('Could not extract profile ID from URL. Make sure you are on a LinkedIn profile page.');
             return null;
         }
-        
+
         console.log(`Profile ID: ${profileId}\n`);
-        
+
         const diagnostic = {
             profileId,
             timestamp: new Date().toISOString(),
@@ -234,10 +236,10 @@ window.LinkedInDiagnostic = (() => {
                 domMethodsAvailable: []
             }
         };
-        
+
         // Test all API endpoints
         console.log('\n--- Testing API Endpoints ---\n');
-        
+
         const endpointsToTest = [
             {
                 name: 'profileView (OLD)',
@@ -265,19 +267,15 @@ window.LinkedInDiagnostic = (() => {
                 description: 'Recommendations received'
             }
         ];
-        
+
         // Note: These require profileUrnId which we can't easily get without a working profile endpoint
         console.log('Note: Some endpoints require profileUrnId and will be tested with placeholder\n');
-        
+
         for (const endpointDef of endpointsToTest) {
-            const result = await testEndpoint(
-                endpointDef.name,
-                endpointDef.endpoint,
-                endpointDef.description
-            );
-            
+            const result = await testEndpoint(endpointDef.name, endpointDef.endpoint, endpointDef.description);
+
             diagnostic.apiEndpoints[endpointDef.name] = result;
-            
+
             if (result.success) {
                 diagnostic.summary.workingEndpoints.push(endpointDef.name);
                 console.log(`✓ ${endpointDef.name}: SUCCESS (${result.status})`);
@@ -285,63 +283,63 @@ window.LinkedInDiagnostic = (() => {
                 diagnostic.summary.brokenEndpoints.push(endpointDef.name);
                 console.log(`✗ ${endpointDef.name}: FAILED (${result.status} ${result.statusText})`);
             }
-            
+
             // Small delay to avoid rate limiting
-            await new Promise(resolve => setTimeout(resolve, 200));
+            await new Promise((resolve) => setTimeout(resolve, 200));
         }
-        
+
         // Test DOM extraction
         console.log('\n--- Testing DOM Extraction ---\n');
         diagnostic.domExtraction = testDOMExtraction();
-        
+
         // Summarize DOM results
-        if (diagnostic.domExtraction.embeddedSchemaBlocks.found) {
+        if ((diagnostic.domExtraction as any).embeddedSchemaBlocks.found) {
             diagnostic.summary.domMethodsAvailable.push('Embedded JSON Schema');
-            console.log(`✓ Embedded Schema Blocks: ${diagnostic.domExtraction.embeddedSchemaBlocks.count} found`);
-            console.log(`  Has full profile data: ${diagnostic.domExtraction.embeddedSchemaBlocks.hasProfileData ? 'YES' : 'NO'}`);
+            console.log(`✓ Embedded Schema Blocks: ${(diagnostic.domExtraction as any).embeddedSchemaBlocks.count} found`);
+            console.log(`  Has full profile data: ${(diagnostic.domExtraction as any).embeddedSchemaBlocks.hasProfileData ? 'YES' : 'NO'}`);
         } else {
             console.log('✗ Embedded Schema Blocks: Not found');
         }
-        
-        if (diagnostic.domExtraction.profilePicture.found) {
+
+        if ((diagnostic.domExtraction as any).profilePicture.found) {
             diagnostic.summary.domMethodsAvailable.push('Profile Picture');
             console.log('✓ Profile Picture: Found');
         } else {
             console.log('✗ Profile Picture: Not found');
         }
-        
-        if (diagnostic.domExtraction.skillElements.found) {
+
+        if ((diagnostic.domExtraction as any).skillElements.found) {
             diagnostic.summary.domMethodsAvailable.push('Skill DOM Elements');
-            console.log(`✓ Skill Elements: ${diagnostic.domExtraction.skillElements.count} found`);
+            console.log(`✓ Skill Elements: ${(diagnostic.domExtraction as any).skillElements.count} found`);
         } else {
             console.log('✗ Skill Elements: Not found');
         }
-        
+
         // Print summary
         console.log('\n=== SUMMARY ===\n');
         console.log(`Working API Endpoints (${diagnostic.summary.workingEndpoints.length}):`);
-        diagnostic.summary.workingEndpoints.forEach(name => console.log(`  ✓ ${name}`));
-        
+        diagnostic.summary.workingEndpoints.forEach((name) => console.log(`  ✓ ${name}`));
+
         console.log(`\nBroken API Endpoints (${diagnostic.summary.brokenEndpoints.length}):`);
-        diagnostic.summary.brokenEndpoints.forEach(name => console.log(`  ✗ ${name}`));
-        
+        diagnostic.summary.brokenEndpoints.forEach((name) => console.log(`  ✗ ${name}`));
+
         console.log(`\nAvailable DOM Methods (${diagnostic.summary.domMethodsAvailable.length}):`);
-        diagnostic.summary.domMethodsAvailable.forEach(method => console.log(`  ✓ ${method}`));
-        
+        diagnostic.summary.domMethodsAvailable.forEach((method) => console.log(`  ✓ ${method}`));
+
         console.log('\n=== RECOMMENDATIONS ===\n');
-        
+
         if (diagnostic.summary.workingEndpoints.includes('dashFullProfile')) {
             console.log('✓ RECOMMENDED: Use dashFullProfile endpoint as primary data source');
-        } else if (diagnostic.domExtraction.embeddedSchemaBlocks.hasProfileData) {
+        } else if ((diagnostic.domExtraction as any).embeddedSchemaBlocks.hasProfileData) {
             console.log('✓ RECOMMENDED: Use embedded schema extraction as primary method');
         } else {
             console.log('⚠ WARNING: No reliable data source found. May need to use multiple fallback methods.');
         }
-        
+
         console.log('\nFull diagnostic results stored in returned object.');
         return diagnostic;
     }
-    
+
     /**
      * Quick test - just check critical endpoints
      */
@@ -351,31 +349,27 @@ window.LinkedInDiagnostic = (() => {
             console.error('Not on a LinkedIn profile page');
             return null;
         }
-        
+
         console.log('Running quick diagnostic...\n');
-        
+
         const tests = {
-            profileView: await testEndpoint(
-                'profileView',
-                `/identity/profiles/${profileId}/profileView`,
-                'Old endpoint'
-            ),
+            profileView: await testEndpoint('profileView', `/identity/profiles/${profileId}/profileView`, 'Old endpoint'),
             dashProfile: await testEndpoint(
                 'dashProfile',
                 `/identity/dash/profiles?q=memberIdentity&memberIdentity=${profileId}&decorationId=com.linkedin.voyager.dash.deco.identity.profile.FullProfileWithEntities-93`,
                 'Dash endpoint'
             ),
-            embeddedSchema: testDOMExtraction().embeddedSchemaBlocks
+            embeddedSchema: (testDOMExtraction() as any).embeddedSchemaBlocks
         };
-        
+
         console.log('Results:');
         console.log(`profileView: ${tests.profileView.success ? '✓' : '✗'} (${tests.profileView.status})`);
         console.log(`dashProfile: ${tests.dashProfile.success ? '✓' : '✗'} (${tests.dashProfile.status})`);
         console.log(`embeddedSchema: ${tests.embeddedSchema.hasProfileData ? '✓' : '✗'} (${tests.embeddedSchema.count} blocks)`);
-        
+
         return tests;
     }
-    
+
     // Public API
     return {
         runFullDiagnostic,
@@ -391,4 +385,3 @@ window.LinkedInDiagnostic = (() => {
 console.log('LinkedIn Diagnostic Tool loaded!');
 console.log('Run: await LinkedInDiagnostic.runFullDiagnostic()');
 console.log('Or: await LinkedInDiagnostic.quickTest()');
-
