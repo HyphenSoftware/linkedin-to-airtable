@@ -18,9 +18,6 @@
  * @property {function(): string} getViewersLocalLang - Function to get viewer's local language
  */
 
-// We'll initialize this after the content script is loaded
-let liToJrInstance;
-
 const extensionId = chrome.runtime.id;
 
 const STORAGE_KEYS = {
@@ -465,10 +462,9 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
                     }
                 })
                 .then((results) => {
-                    // Get the liToJrInstance from the content script
-                    if (results && results[0] && results[0].result) {
-                        liToJrInstance = results[0].result;
-
+                    // Instance exists in page context; don't use returned object from executeScript
+                    // because methods are not preserved through structured cloning.
+                    if (results && results[0]) {
                         // Now that we have liToJrInstance, we can get the supported locales
                         chrome.scripting
                             .executeScript({
@@ -480,14 +476,24 @@ chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
                             .then((localeResults) => {
                                 if (localeResults && localeResults[0] && localeResults[0].result) {
                                     const supported = localeResults[0].result;
-                                    const user = liToJrInstance.getViewersLocalLang();
-
-                                    // Make sure user's own locale comes as first option
-                                    if (supported.includes(user)) {
-                                        supported.splice(supported.indexOf(user), 1);
-                                    }
-                                    supported.unshift(user);
-                                    loadLangs(supported);
+                                    chrome.scripting
+                                        .executeScript({
+                                            target: { tabId: tabs[0].id },
+                                            func: () => {
+                                                return window.liToJrInstance.getViewersLocalLang();
+                                            }
+                                        })
+                                        .then((userLocaleResults) => {
+                                            if (userLocaleResults && userLocaleResults[0] && userLocaleResults[0].result) {
+                                                const user = userLocaleResults[0].result;
+                                                // Make sure user's own locale comes as first option
+                                                if (supported.includes(user)) {
+                                                    supported.splice(supported.indexOf(user), 1);
+                                                }
+                                                supported.unshift(user);
+                                            }
+                                            loadLangs(supported);
+                                        });
                                 }
                             });
 
