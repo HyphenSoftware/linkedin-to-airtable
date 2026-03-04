@@ -279,6 +279,13 @@ export class LinkedInExtractor {
                         this.outputJsonLegacy.basics = parsed.legacy;
                         this.outputJsonStable.basics = parsed.stable;
 
+                        // Extract and attach profile photo URL (legacy + stable schema fields)
+                        const profilePhotoUrl = this.extractProfilePhotoUrl(profile, db);
+                        if (profilePhotoUrl) {
+                            this.outputJsonLegacy.basics.picture = profilePhotoUrl;
+                            this.outputJsonStable.basics.image = profilePhotoUrl;
+                        }
+
                         // Add language
                         const language = parseProfileLanguage(profile, true);
                         this.outputJsonLegacy.languages = [language];
@@ -305,6 +312,13 @@ export class LinkedInExtractor {
                 const parsed = parseProfileBasics(domProfile, false);
                 this.outputJsonLegacy.basics = parsed.legacy;
                 this.outputJsonStable.basics = parsed.stable;
+
+                // Extract and attach profile photo URL (legacy + stable schema fields)
+                const profilePhotoUrl = this.extractProfilePhotoUrl(domProfile);
+                if (profilePhotoUrl) {
+                    this.outputJsonLegacy.basics.picture = profilePhotoUrl;
+                    this.outputJsonStable.basics.image = profilePhotoUrl;
+                }
 
                 const language = parseProfileLanguage(domProfile, false);
                 this.outputJsonLegacy.languages = [language];
@@ -734,6 +748,78 @@ export class LinkedInExtractor {
     private getViewersLocalLang(): string {
         const lang = navigator.language || 'en-US';
         return lang.replace('-', '_');
+    }
+
+    /**
+     * Build profile photo URL from LinkedIn vector image metadata
+     * Prefer the highest resolution artifact for better quality.
+     */
+    private buildProfilePhotoUrlFromPictureMeta(pictureMeta: any): string {
+        if (!pictureMeta || typeof pictureMeta !== 'object') {
+            return '';
+        }
+
+        // Sometimes the vector image object is nested under displayImageReference/vectorImage
+        const vectorImage = pictureMeta.displayImageReference?.vectorImage || pictureMeta.vectorImage || pictureMeta;
+        const rootUrl = vectorImage?.rootUrl;
+        const artifacts = vectorImage?.artifacts;
+        if (!rootUrl || !Array.isArray(artifacts) || artifacts.length === 0) {
+            return '';
+        }
+
+        // Prefer highest quality by selecting the largest artifact
+        const largestArtifact = artifacts.sort((a: any, b: any) => (b?.width || 0) - (a?.width || 0))[0];
+        const pathSegment = largestArtifact?.fileIdentifyingUrlPathSegment;
+        if (!pathSegment) {
+            return '';
+        }
+
+        return `${rootUrl}${pathSegment}`;
+    }
+
+    /**
+     * Extract profile photo URL from DOM first, then from API metadata
+     */
+    private extractProfilePhotoUrl(profileObj?: any, db?: any): string {
+        // 1) DOM extraction first (matches old behavior and works across layouts)
+        const domImage =
+            (document.querySelector('img[class*="profile-picture"]') as HTMLImageElement | null) ||
+            (document.querySelector('img[class*="profile-photo"]') as HTMLImageElement | null);
+        if (domImage?.src) {
+            return domImage.src;
+        }
+
+        if (!profileObj || typeof profileObj !== 'object') {
+            return '';
+        }
+
+        // 2) Direct string picture URL (some payload variants expose this)
+        if (typeof profileObj.picture === 'string' && profileObj.picture.trim().length > 0) {
+            return profileObj.picture;
+        }
+
+        // 3) profileView style miniProfile.picture
+        if (db && profileObj['*miniProfile']) {
+            const miniProfile = db.getElementByUrn?.(profileObj['*miniProfile']);
+            const miniProfileUrl = this.buildProfilePhotoUrlFromPictureMeta(miniProfile?.picture);
+            if (miniProfileUrl) {
+                return miniProfileUrl;
+            }
+        }
+
+        // 4) Dash style profilePicture.displayImageReference.vectorImage
+        const dashPictureUrl = this.buildProfilePhotoUrlFromPictureMeta(profileObj.profilePicture);
+        if (dashPictureUrl) {
+            return dashPictureUrl;
+        }
+
+        // 5) Other known picture-like fields on profile entities
+        const directPictureUrl = this.buildProfilePhotoUrlFromPictureMeta(profileObj.picture);
+        if (directPictureUrl) {
+            return directPictureUrl;
+        }
+
+        return '';
     }
 
     /**

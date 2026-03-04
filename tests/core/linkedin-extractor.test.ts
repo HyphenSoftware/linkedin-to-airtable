@@ -314,6 +314,64 @@ describe('LinkedInExtractor', () => {
             expect(result.success).toBe(true);
             expect(result.locale).toBe('en_US');
         });
+
+        it('should set legacy picture and stable image from profile-photo DOM selector', async () => {
+            mockVoyagerClient.fetchProfile.mockRejectedValue(new Error('API Error'));
+            (extractor as any).extractProfileFromDOM = jest.fn().mockReturnValue({
+                firstName: 'John',
+                lastName: 'Doe',
+                headline: 'Software Engineer',
+                defaultLocale: { country: 'US', language: 'en' }
+            });
+
+            document.body.innerHTML = '<img class="profile-photo-img" src="https://cdn.example.com/profile-photo.jpg" />';
+
+            const result = await (extractor as any).extractProfileBasics();
+
+            expect(result.success).toBe(true);
+            expect((extractor as any).outputJsonLegacy.basics.picture).toBe('https://cdn.example.com/profile-photo.jpg');
+            expect((extractor as any).outputJsonStable.basics.image).toBe('https://cdn.example.com/profile-photo.jpg');
+        });
+
+        it('should set legacy picture and stable image from highest-quality API vector artifact when DOM image is missing', async () => {
+            const mockProfileData = {
+                data: { '*elements': ['urn:li:fsd_profile:123'] },
+                included: []
+            };
+
+            mockVoyagerClient.fetchProfile.mockResolvedValue(mockProfileData);
+            (buildDbFromLiSchema as jest.Mock).mockReturnValue({
+                getElementsByType: jest.fn().mockReturnValue([
+                    {
+                        $type: 'com.linkedin.voyager.dash.identity.profile.Profile',
+                        firstName: 'John',
+                        lastName: 'Doe',
+                        headline: 'Software Engineer',
+                        summary: 'Experienced developer',
+                        primaryLocale: { country: 'US', language: 'en' },
+                        profilePicture: {
+                            displayImageReference: {
+                                vectorImage: {
+                                    rootUrl: 'https://media.licdn.com/dms/image/',
+                                    artifacts: [
+                                        { width: 200, fileIdentifyingUrlPathSegment: 'bigger.jpg' },
+                                        { width: 100, fileIdentifyingUrlPathSegment: 'smallest.jpg' }
+                                    ]
+                                }
+                            }
+                        }
+                    }
+                ])
+            });
+
+            document.body.innerHTML = '';
+
+            const result = await (extractor as any).extractProfileBasics();
+
+            expect(result.success).toBe(true);
+            expect((extractor as any).outputJsonLegacy.basics.picture).toBe('https://media.licdn.com/dms/image/bigger.jpg');
+            expect((extractor as any).outputJsonStable.basics.image).toBe('https://media.licdn.com/dms/image/bigger.jpg');
+        });
     });
 
     describe('extractEducation', () => {
