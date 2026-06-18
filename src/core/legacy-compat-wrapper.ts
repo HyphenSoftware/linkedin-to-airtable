@@ -98,7 +98,7 @@ export class LinkedinToResumeJsonCompat {
     /**
      * Parse profile and send to API
      */
-    async parseAndSendToApi(url: string, entity: string = 'subcontractor', version: 'legacy' | 'stable' = 'stable'): Promise<any> {
+    async parseAndSendToApi(url: string, entity: string = 'subcontractor', version: 'legacy' | 'stable' = 'stable', mode: 'auto' | 'create' | 'update' = 'auto'): Promise<any> {
         try {
             const result = await this.extractor.extractProfile();
 
@@ -112,9 +112,11 @@ export class LinkedinToResumeJsonCompat {
                 // Get the appropriate JSON format
                 const jsonData = version === 'legacy' ? result.legacy : result.stable;
 
-                // Wrap in payload object with entity type (as expected by the API)
+                // Wrap in payload object with entity type (as expected by the API).
+                // `mode` lets the popup force create vs update (e.g. on a name-only "possible match").
                 const payload = {
                     entity,
+                    mode,
                     data: jsonData
                 };
 
@@ -189,9 +191,16 @@ export class LinkedinToResumeJsonCompat {
     async checkProfileExists(checkUrl: string): Promise<any> {
         try {
             const currentUrl = window.location.href.split('?')[0];
+
+            // Resolve the durable member URN + name so the backend can match by stable id
+            // (and fall back to a name-based possible match) instead of the unstable vanity URL.
+            const { urn, name } = await this.extractor.resolveIdentity();
+
             this.debugConsole.log('Checking profile with:', {
                 currentUrl,
-                checkUrl
+                checkUrl,
+                urn,
+                name
             });
 
             const response = await fetch(checkUrl, {
@@ -200,7 +209,7 @@ export class LinkedinToResumeJsonCompat {
                     'Content-Type': 'application/json',
                     'Access-Control-Allow-Origin': '*'
                 },
-                body: JSON.stringify({ url: currentUrl })
+                body: JSON.stringify({ url: currentUrl, name, id: urn })
             });
 
             if (!response.ok) {

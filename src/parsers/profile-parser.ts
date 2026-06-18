@@ -61,6 +61,7 @@ export interface ResumeBasicsLegacy {
         network: string;
         username: string;
         url: string;
+        id?: string;
     }>;
 }
 
@@ -86,6 +87,7 @@ export interface ResumeBasicsStable {
         network: string;
         username: string;
         url: string;
+        id?: string;
     }>;
 }
 

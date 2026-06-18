@@ -182,35 +182,87 @@ const getSpecVersion = () => {
  * Update the UI to show profile status
  * @param {{subcontractor: object, contact: object, error?: string} | 'loading'} status
  */
+// Button background by match state: green = exists, amber = possible name match, red = not found.
+const BUTTON_COLOR_EXISTS = '#4CAF50';
+const BUTTON_COLOR_POSSIBLE = '#FF9800';
+const BUTTON_COLOR_NOT_FOUND = '#f44336';
+const BUTTON_COLOR_NEUTRAL = '#607d8b'; // secondary action (e.g. "Create new" on a possible match)
+
+/**
+ * Configure an entity's action buttons from its precheck status. The chosen action is stored on
+ * each button's `dataset.mode` ('create' | 'update' | 'auto') and read by the click handler.
+ *  - not found     -> primary "Create new {label}" (mode=create)
+ *  - perfect match -> primary "Update {label}"      (mode=update)
+ *  - possible match-> primary "Update {label}" (mode=update) + secondary "Create new {label}" (mode=create)
+ * @param {string} primaryId
+ * @param {string} altId
+ * @param {{exists?: boolean, possibleMatch?: boolean}} entityStatus
+ * @param {string} label - display label, e.g. "Subcontractor"
+ */
+const applyEntityButton = (primaryId, altId, entityStatus, label) => {
+    const primary = document.getElementById(primaryId);
+    const alt = document.getElementById(altId);
+    if (alt) {
+        alt.classList.add('hidden');
+    }
+    if (!primary) {
+        return;
+    }
+
+    if (entityStatus && entityStatus.exists) {
+        primary.dataset.mode = 'update';
+        primary.style.backgroundColor = BUTTON_COLOR_EXISTS;
+        primary.textContent = `Update ${label}`;
+        primary.title = `${label} exists — update it`;
+    } else if (entityStatus && entityStatus.possibleMatch) {
+        primary.dataset.mode = 'update';
+        primary.style.backgroundColor = BUTTON_COLOR_POSSIBLE;
+        primary.textContent = `Update ${label}`;
+        primary.title = `Possible match by name — update the existing ${label}`;
+        if (alt) {
+            alt.classList.remove('hidden');
+            alt.dataset.mode = 'create';
+            alt.style.backgroundColor = BUTTON_COLOR_NEUTRAL;
+            alt.textContent = `Create new ${label}`;
+            alt.title = `Not the same person? Create a new ${label} instead`;
+            alt.disabled = false;
+        }
+    } else {
+        primary.dataset.mode = 'create';
+        primary.style.backgroundColor = BUTTON_COLOR_NOT_FOUND;
+        primary.textContent = `Create ${label}`;
+        primary.title = `${label} not found — create new`;
+    }
+    primary.disabled = false;
+};
+
+const setButtonLoading = (id) => {
+    const btn = document.getElementById(id);
+    if (btn) {
+        btn.style.backgroundColor = '#808080';
+        btn.title = 'Checking profile status...';
+        btn.disabled = true;
+    }
+};
+
 const updateProfileStatus = (status) => {
     console.log('Updating profile status:', status);
 
-    // Update subcontractor button
-    const subcontractorButton = document.getElementById('liToSubcontractor');
-    if (subcontractorButton) {
-        if (status === 'loading') {
-            subcontractorButton.style.backgroundColor = '#808080';
-            subcontractorButton.title = 'Checking profile status...';
-            subcontractorButton.disabled = true;
-        } else {
-            subcontractorButton.style.backgroundColor = status.subcontractor?.exists ? '#4CAF50' : '#f44336';
-            subcontractorButton.title = status.subcontractor?.exists ? 'Profile exists as subcontractor' : 'Add as Subcontractor';
-            subcontractorButton.disabled = false;
-        }
-    }
+    const subAlt = document.getElementById('liToSubcontractorAlt');
+    const contactAlt = document.getElementById('liToContactAlt');
 
-    // Update contact button
-    const contactButton = document.getElementById('liToContact');
-    if (contactButton) {
-        if (status === 'loading') {
-            contactButton.style.backgroundColor = '#808080';
-            contactButton.title = 'Checking profile status...';
-            contactButton.disabled = true;
-        } else {
-            contactButton.style.backgroundColor = status.contact?.exists ? '#4CAF50' : '#f44336';
-            contactButton.title = status.contact?.exists ? 'Profile exists as contact' : 'Add as Contact';
-            contactButton.disabled = false;
-        }
+    if (status === 'loading') {
+        setButtonLoading('liToSubcontractor');
+        setButtonLoading('liToContact');
+        if (subAlt) subAlt.classList.add('hidden');
+        if (contactAlt) contactAlt.classList.add('hidden');
+    } else if (!status || status.error) {
+        // Unknown state: hide the secondary buttons and leave the defaults (auto mode).
+        if (subAlt) subAlt.classList.add('hidden');
+        if (contactAlt) contactAlt.classList.add('hidden');
+    } else {
+        applyEntityButton('liToSubcontractor', 'liToSubcontractorAlt', status.subcontractor, 'Subcontractor');
+        applyEntityButton('liToContact', 'liToContactAlt', status.contact, 'Contact');
     }
 
     // Update status text
@@ -230,58 +282,50 @@ const updateProfileStatus = (status) => {
     } else {
         const innerHtml = [];
 
-        // Subcontractor status
         if (status.subcontractor) {
-            const subcontractorStatus = status.subcontractor;
-            const statusClass = subcontractorStatus.exists ? 'exists' : 'not-exists';
-            const mainStatus = subcontractorStatus.exists ? 'Profile exists as subcontractor' : 'Subcontractor not found';
-
-            let details = '';
-            if (subcontractorStatus.exists) {
-                details = `<div class="details">
-                    ${subcontractorStatus.lastImported ? `Last imported: ${subcontractorStatus.lastImported}` : ''}
-                    ${subcontractorStatus.lastContacted ? `<br>Last contacted: ${subcontractorStatus.lastContacted} by ${subcontractorStatus.lastContactedBy?.name || 'Unknown'}` : ''}
-                </div>`;
-            }
-
-            const warning = subcontractorStatus.multipleProfiles ? '<div class="warning">Multiple profiles found for this LinkedIn URL</div>' : '';
-
-            innerHtml.push(`
-                <div class="status-indicator ${statusClass}">
-                    <div class="main-status">${mainStatus}</div>
-                    ${details}
-                    ${warning}
-                </div>
-            `);
+            innerHtml.push(buildEntityStatusHtml(status.subcontractor, 'subcontractor'));
         }
-
-        // Contact status
         if (status.contact) {
-            const contactStatus = status.contact;
-            const statusClass = contactStatus.exists ? 'exists' : 'not-exists';
-            const mainStatus = contactStatus.exists ? 'Profile exists as contact' : 'Contact not found';
-
-            let details = '';
-            if (contactStatus.exists) {
-                details = `<div class="details">
-                    ${contactStatus.lastImported ? `Last imported: ${contactStatus.lastImported}` : ''}
-                    ${contactStatus.lastContacted ? `<br>Last contacted: ${contactStatus.lastContacted} by ${contactStatus.lastContactedBy?.name || 'Unknown'}` : ''}
-                </div>`;
-            }
-
-            const warning = contactStatus.multipleProfiles ? '<div class="warning">Multiple profiles found for this LinkedIn URL</div>' : '';
-
-            innerHtml.push(`
-                <div class="status-indicator ${statusClass}">
-                    <div class="main-status">${mainStatus}</div>
-                    ${details}
-                    ${warning}
-                </div>
-            `);
+            innerHtml.push(buildEntityStatusHtml(status.contact, 'contact'));
         }
 
         statusDiv.innerHTML = innerHtml.join('');
     }
+};
+
+// Build a status-indicator block for one entity (subcontractor/contact),
+// handling exists (green), possibleMatch (amber name match) and not-found (red).
+const buildEntityStatusHtml = (entityStatus, label) => {
+    let statusClass;
+    let mainStatus;
+    if (entityStatus.exists) {
+        statusClass = 'exists';
+        mainStatus = `Profile exists as ${label}`;
+    } else if (entityStatus.possibleMatch) {
+        statusClass = 'possible-match';
+        mainStatus = `Possible ${label} match by name — please verify`;
+    } else {
+        statusClass = 'not-exists';
+        mainStatus = `${label.charAt(0).toUpperCase()}${label.slice(1)} not found`;
+    }
+
+    let details = '';
+    if (entityStatus.exists || entityStatus.possibleMatch) {
+        details = `<div class="details">
+            ${entityStatus.lastImported ? `Last imported: ${entityStatus.lastImported}` : ''}
+            ${entityStatus.lastContacted ? `<br>Last contacted: ${entityStatus.lastContacted} by ${entityStatus.lastContactedBy?.name || 'Unknown'}` : ''}
+        </div>`;
+    }
+
+    const warning = entityStatus.multipleProfiles ? '<div class="warning">Multiple profiles found for this person</div>' : '';
+
+    return `
+        <div class="status-indicator ${statusClass}">
+            <div class="main-status">${mainStatus}</div>
+            ${details}
+            ${warning}
+        </div>
+    `;
 };
 
 /**
@@ -331,40 +375,41 @@ document.getElementById('liToJsonButton').addEventListener('click', async () => 
     });
 });
 
-document.getElementById('liToSubcontractor').addEventListener('click', async () => {
+/**
+ * Extract the profile and send it to the import endpoint for the given entity and action.
+ * @param {'subcontractor' | 'contact'} entity
+ * @param {'auto' | 'create' | 'update'} mode
+ */
+const sendImport = (entity, mode) => {
     showLoader(true);
     chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
         chrome.scripting
             .executeScript({
                 target: { tabId: tabs[0].id },
-                func: (lang, endpoint) => {
+                func: (lang, endpoint, entityArg, modeArg) => {
                     window.liToJrInstance.preferLocale = lang;
-                    return window.liToJrInstance.parseAndSendToApi(endpoint.importUrl, 'subcontractor');
+                    return window.liToJrInstance.parseAndSendToApi(endpoint.importUrl, entityArg, 'stable', modeArg);
                 },
-                args: [getSelectedLang(), getSelectedAPIEndpoint()]
+                args: [getSelectedLang(), getSelectedAPIEndpoint(), entity, mode]
             })
             .then(() => {
                 showLoader(false);
             });
     });
+};
+
+document.getElementById('liToSubcontractor').addEventListener('click', (e) => {
+    sendImport('subcontractor', e.currentTarget.dataset.mode || 'auto');
+});
+document.getElementById('liToSubcontractorAlt').addEventListener('click', (e) => {
+    sendImport('subcontractor', e.currentTarget.dataset.mode || 'create');
 });
 
-document.getElementById('liToContact').addEventListener('click', async () => {
-    showLoader(true);
-    chrome.tabs.query({ active: true, currentWindow: true }, (tabs) => {
-        chrome.scripting
-            .executeScript({
-                target: { tabId: tabs[0].id },
-                func: (lang, endpoint) => {
-                    window.liToJrInstance.preferLocale = lang;
-                    return window.liToJrInstance.parseAndSendToApi(endpoint.importUrl, 'contact');
-                },
-                args: [getSelectedLang(), getSelectedAPIEndpoint()]
-            })
-            .then(() => {
-                showLoader(false);
-            });
-    });
+document.getElementById('liToContact').addEventListener('click', (e) => {
+    sendImport('contact', e.currentTarget.dataset.mode || 'auto');
+});
+document.getElementById('liToContactAlt').addEventListener('click', (e) => {
+    sendImport('contact', e.currentTarget.dataset.mode || 'create');
 });
 
 document.getElementById('liToJsonDownloadButton').addEventListener('click', () => {

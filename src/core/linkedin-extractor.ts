@@ -607,16 +607,24 @@ export class LinkedInExtractor {
                 this.outputJsonLegacy.basics.profiles = this.outputJsonLegacy.basics.profiles || [];
                 this.outputJsonStable.basics.profiles = this.outputJsonStable.basics.profiles || [];
 
+                // Include the stable member URN when we resolved a real one
+                // (getProfileUrnId() falls back to 'unknown-urn-id', which we must not persist).
+                const urnPart = this.profileUrnId && this.profileUrnId !== 'unknown-urn-id'
+                    ? { id: this.profileUrnId }
+                    : {};
+
                 this.outputJsonLegacy.basics.profiles.push({
                     network: 'LinkedIn',
                     username: this.profileId,
-                    url: linkedInUrl
+                    url: linkedInUrl,
+                    ...urnPart
                 });
 
                 this.outputJsonStable.basics.profiles.push({
                     network: 'LinkedIn',
                     username: this.profileId,
-                    url: linkedInUrl
+                    url: linkedInUrl,
+                    ...urnPart
                 });
             }
         }
@@ -740,6 +748,53 @@ export class LinkedInExtractor {
         this.debugConsole.error('Could not extract profile URN ID, using placeholder');
         this.profileUrnId = 'unknown-urn-id';
         return this.profileUrnId;
+    }
+
+    /**
+     * Cheaply resolve the durable member URN and the profile's full name without a full
+     * extraction. Used by the profile-exists precheck, which fires before extractProfile().
+     * Reads embedded page JSON (URN + first/last name), falling back to DOM for the name.
+     */
+    async resolveIdentity(): Promise<{ urn: string | null; name: string | null }> {
+        let urn: string | null = null;
+        try {
+            const resolved = await this.getProfileUrnId();
+            urn = resolved && resolved !== 'unknown-urn-id' ? resolved : null;
+        } catch (error) {
+            this.debugConsole.warn('resolveIdentity: failed to resolve URN:', error);
+        }
+
+        let name: string | null = null;
+        try {
+            const profile = this.extractProfileFromEmbeddedData() || this.extractProfileFromDOM();
+            if (profile) {
+                const candidate = `${profile.firstName || ''} ${profile.lastName || ''}`.trim();
+                name = candidate || null;
+            }
+        } catch (error) {
+            this.debugConsole.warn('resolveIdentity: failed to resolve name from page:', error);
+        }
+
+        // Fallback: pull the name from the Voyager API profile (the same source getProfileUrnId
+        // uses). LinkedIn's embedded JSON / DOM selectors are frequently absent on modern profile
+        // pages, which would otherwise leave the name null and break the name-based fallback.
+        if (!name) {
+            try {
+                const profileData = await this.apiClient.fetchProfile(this.profileId);
+                const db = buildDbFromLiSchema(profileData);
+                const profiles = db.getElementsByType(['com.linkedin.voyager.dash.identity.profile.Profile', 'com.linkedin.voyager.identity.profile.Profile']);
+                if (profiles.length > 0) {
+                    const profile = profiles[0];
+                    const candidate = `${profile.firstName || ''} ${profile.lastName || ''}`.trim();
+                    name = candidate || null;
+                }
+            } catch (error) {
+                this.debugConsole.warn('resolveIdentity: failed to resolve name from API:', error);
+            }
+        }
+
+        this.debugConsole.log('resolveIdentity result:', { urn, name });
+        return { urn, name };
     }
 
     /**
